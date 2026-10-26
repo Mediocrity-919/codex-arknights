@@ -44,7 +44,7 @@ jobs:
           $manifest = Get-Content (Join-Path $sandbox release-manifest.json) -Raw | ConvertFrom-Json
           foreach ($entry in $manifest.files) { if ((Get-FileHash -LiteralPath (Join-Path $sandbox $entry.path)).Hash -ne $entry.sha256) { throw "Package file mismatch: $($entry.path)" } }
           # Overlay test scripts only; product src/public/launcher code remains the released package.
-          Copy-Item scripts/*check*.mjs,scripts/*acceptance*.mjs,scripts/acceptance-fixtures.mjs -Destination (Join-Path $sandbox scripts) -Force
+          Copy-Item scripts/*check*.mjs,scripts/*acceptance*.mjs,scripts/acceptance-fixtures.mjs,scripts/windows-install-acceptance.ps1 -Destination (Join-Path $sandbox scripts) -Force
           New-Item -ItemType Directory -Path (Join-Path $sandbox test-results),(Join-Path $sandbox .local) -Force | Out-Null
           "ARK_ACCEPTANCE_ROOT=$sandbox" | Out-File $env:GITHUB_ENV -Append
           "ARK_ACCEPTANCE_OUTPUT=$PWD/test-results/cloud" | Out-File $env:GITHUB_ENV -Append

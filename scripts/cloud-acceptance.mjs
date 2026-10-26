@@ -1,7 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
-import {fileURLToPath} from 'node:url';
 const root=path.resolve(process.env.ARK_ACCEPTANCE_ROOT??path.join(import.meta.dirname,'..'));
 if(!root.includes('acceptance-sandbox'))throw Error('Run only in an isolated acceptance-sandbox directory');
 const output=path.resolve(process.env.ARK_ACCEPTANCE_OUTPUT??path.join(root,'test-results'));
@@ -27,8 +26,8 @@ if(group==='ui'){
  for(const script of ['beta-usability-check','queue-usability-check'])await run(script,process.execPath,['--import','./scripts/acceptance-fixtures.mjs','scripts/'+script+'.mjs'],{env:{ARK_ACCEPTANCE_SANDBOX:'1'}});
  for(const script of ['acceptance-operations'])await run(script,process.execPath,['--import','./scripts/acceptance-fixtures.mjs','scripts/'+script+'.mjs'],{env:{ARK_ACCEPTANCE_SANDBOX:'1'}});
 }else if(group==='windows'){
- for(const script of ['tests/boot-readiness-check.ps1','tests/host-startup-check.ps1','scripts/shortcut-recovery-check.ps1','scripts/window-layer-check.ps1','scripts/launcher-lifecycle-check.ps1'])await run(path.basename(script,'.ps1'),'powershell.exe',['-NoProfile','-ExecutionPolicy','Bypass','-File',script],{timeout:260000});
+ for(const script of ['tests/boot-readiness-check.ps1','tests/host-startup-check.ps1','scripts/shortcut-recovery-check.ps1','scripts/window-layer-check.ps1','scripts/launcher-lifecycle-check.ps1','scripts/windows-install-acceptance.ps1'])await run(path.basename(script,'.ps1'),'powershell.exe',['-NoProfile','-ExecutionPolicy','Bypass','-File',script],{timeout:260000,env:{PSModulePath:path.join(process.env.WINDIR,'System32/WindowsPowerShell/v1.0/Modules')}});
 }else if(group==='downloads')await run('fresh-download-check',process.execPath,['scripts/fresh-download-check.mjs'],{timeout:600000});
 else throw Error('Unknown acceptance group');
-for(const entry of await fs.readdir(path.join(root,'test-results'))){if(/\.(json|png)$/.test(entry)&&entry!=='fresh-download.json'&&entry!=='acceptance-summary.json')await fs.copyFile(path.join(root,'test-results',entry),path.join(output,entry));}
+for(const entry of await fs.readdir(path.join(root,'test-results'))){if(/\.(json|png)$/.test(entry)&&entry!=='acceptance-summary.json'){const source=path.join(root,'test-results',entry),target=path.join(output,entry);if(entry.endsWith('.json'))await fs.writeFile(target,clean(await fs.readFile(source,'utf8')));else await fs.copyFile(source,target);}}
 if(checks.some(c=>!c.passed))process.exitCode=1;

@@ -26,7 +26,10 @@ try{
    const scene=manager.decorate(scenes.find(s=>s.id===id));assert.equal(scene.available,true);assert.equal(scene.resource.original,true);
    const file=manager.fileFor(id);if(runtime.ffmpeg)await exec(runtime.ffmpeg,['-v','error','-xerror','-i',file,'-frames:v','1','-f','null','-'],{windowsHide:true,timeout:20000});
    results.push({id,host:new URL(catalog.files[id].original.url).hostname,passed:true,bytes:(await fs.stat(file)).size,seconds:Math.round((Date.now()-begin)/1000)});
-  }catch(e){results.push({id,passed:false,error:e.message});}
+  }catch(e){results.push({id,passed:false,error:e.message,cause:e.cause?.code??e.cause?.message});
+   const variants=catalog.files[id],source=variants?.original?.url;
+   if(source){try{const response=await fetch(source,{method:'HEAD',signal:AbortSignal.timeout(12000)});results.at(-1).diagnosticHeadStatus=response.status;await response.body?.cancel();}catch(d){results.at(-1).diagnosticHeadError=d.cause?.code??d.cause?.message??d.message;}}
+  }
   console.log(JSON.stringify(results.at(-1)));
  }
  const backgrounds=entries.filter(([,v])=>new URL(v.original.url).hostname==='i.imgs.ovh');
