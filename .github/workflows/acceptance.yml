@@ -35,7 +35,9 @@ jobs:
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           $url = "https://github.com/Mediocrity-919/codex-arknights/releases/download/v$version"
           $archive = Join-Path $PWD "release/codex-arknights-$version-windows-x64.zip"
-          Invoke-WebRequest "$url/checksums-$version.json" -OutFile release/checksums.json
+          $ready = $false
+          for ($attempt = 0; $attempt -lt 12; $attempt++) { try { Invoke-WebRequest "$url/checksums-$version.json" -OutFile release/checksums.json; $ready = $true; break } catch { Start-Sleep -Seconds 5 } }
+          if (-not $ready) { throw 'Public release did not become available' }
           Invoke-WebRequest "$url/codex-arknights-$version-windows-x64.zip" -OutFile $archive
           $expected = Get-Content release/checksums.json -Raw | ConvertFrom-Json | Where-Object file -Like '*windows-x64.zip'
           if ((Get-FileHash -LiteralPath $archive).Hash -ne $expected.sha256) { throw 'Public package checksum mismatch' }

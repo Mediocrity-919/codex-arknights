@@ -8,11 +8,13 @@ import {spawn} from 'node:child_process';
 import {configureDownloadNetwork} from './download-network.mjs';
 
 const hosts=new Set(['media.prts.wiki','prts.wiki','web.hycdn.cn','ak.hycdn.cn','patchwiki.biligame.com','wiki.biligame.com','i.imgs.ovh']);
+const releaseAssets=new Set(['/Mediocrity-919/codex-arknights/releases/download/wallpapers-v1/yaoyue-4k60.mp4','/Mediocrity-919/codex-arknights/releases/download/wallpapers-v1/yaoyue-cover.jpg']);
+const allowedHost=u=>hosts.has(u.hostname)||(u.hostname==='github.com'&&releaseAssets.has(u.pathname)&&!u.search)||(u.hostname==='release-assets.githubusercontent.com'&&/^\/github-production-release-asset\/1434136531\/[a-f0-9-]+$/.test(u.pathname));
 const terminal=new Set(['complete','failed','cancelled','interrupted']);
 export function validateSource(value,{allowLocalTest=false}={}){
-  const u=new URL(value);if(u.username||u.password||u.hash||(!allowLocalTest&&(u.protocol!=='https:'||u.port&&!['443',''].includes(u.port)||!hosts.has(u.hostname)))||(allowLocalTest&&!(u.protocol==='http:'&&u.hostname==='127.0.0.1')&&!(u.protocol==='https:'&&hosts.has(u.hostname))))throw Error('素材来源未获允许');return u;
+  const u=new URL(value),localTest=allowLocalTest&&u.protocol==='http:'&&u.hostname==='127.0.0.1';if(u.username||u.password||u.hash||(!localTest&&(u.protocol!=='https:'||u.port&&!['443',''].includes(u.port)||!allowedHost(u))))throw Error('素材来源未获允许');return u;
 }
-export async function createResourceManager({root,stateDir,catalog,scenes,fetcher,allowLocalTest=false,onRevision=()=>{}}){
+export async function createResourceManager({root,stateDir,catalog,scenes,fetcher,allowLocalTest=false,onRevision=()=>{},timeouts={}}){
   fetcher??=async(url,options)=>{await configureDownloadNetwork();return fetch(url,options);};
   root=path.resolve(root);await fs.mkdir(stateDir,{recursive:true});const realRoot=await fs.realpath(root);
   const welcome=path.join(root,'public/assets/welcome.svg'),byId=new Map(scenes.map(s=>[s.id,s]));
@@ -42,7 +44,7 @@ export async function createResourceManager({root,stateDir,catalog,scenes,fetche
   function fsSyncStat(file){return statSync(file);}
   function chosenQuality(sceneId){return degraded.has(sceneId)||data.performance==='economy'||data.quality==='original'?'original':data.quality==='4k'?'4k':data.preferences[sceneId]??'auto';}
   function fileFor(assetId,sceneId=assetId,override){const variants=catalog.files[assetId];if(!variants)return null;const q=override??chosenQuality(sceneId);return q!=='original'&&isPresent(assetId,'4k')?path.join(root,variants['4k'].file):isPresent(assetId,'original')?path.join(root,variants.original.file):q==='original'?null:isPresent(assetId,'4k')?path.join(root,variants['4k'].file):null;}
-  function status(id){const item=catalog.items[id];if(!item)return{original:true,upscaled:false,downloadable:false,bytes:0};const all=assets(id),original=all.every(a=>isPresent(a.id,'original')),upscaled=all.every(a=>isPresent(a.id,'4k'));return{original,upscaled,downloadable:all.every(a=>!!a.variants.original.url),canUpscale:all.every(a=>!!a.variants['4k']),bytes:all.reduce((n,a)=>n+(a.variants.original.bytes??0),0),selected:chosenQuality(id)};}
+  function status(id){const item=catalog.items[id];if(!item)return{original:true,upscaled:false,downloadable:false,bytes:0};const all=assets(id),original=all.every(a=>isPresent(a.id,'original')),upscaled=all.every(a=>isPresent(a.id,'4k'));return{original,upscaled,downloadable:all.every(a=>!!a.variants.original.url),canUpscale:all.every(a=>!!a.variants['4k']),source4k:all.every(a=>a.variants.original.width>=3840&&a.variants.original.height>=2160),sourceFps:Math.min(...all.map(a=>a.variants.original.fps??0)),requiresFfmpeg:!original&&all.some(a=>a.variants.original.hls),bytes:all.reduce((n,a)=>n+(a.variants.original.bytes??0),0),selected:chosenQuality(id)};}
   function decorate(scene){const s=status(scene.id),file=scene.clips?.length?fileFor(scene.clips[0].id,scene.id):fileFor(scene.id),available=scene.id==='welcome'||!!file&&(scene.clips?.every(c=>fileFor(c.id,scene.id))??true);
     return{...scene,...(scene.clips?{clips:scene.clips.map(c=>({...c,file:fileFor(c.id,scene.id)}))}:{}),available,resource:{...s,degraded:degraded.has(scene.id)}};}
   function posterPath(id,thumb=false){const item=catalog.items[id],scene=byId.get(id);const cached=path.join(stateDir,'covers',id+'.img');
@@ -51,16 +53,22 @@ export async function createResourceManager({root,stateDir,catalog,scenes,fetche
     if(item?.poster){const p=path.join(root,item.poster);if(existsSync(p))return p;}
     if(existsSync(cached))return cached;return welcome;
   }
-  async function request(url,signal,headers={}){for(let i=0;i<6;i++){validateSource(url,{allowLocalTest});const r=await fetcher(url,{headers:{'User-Agent':'ArkWorkspace/0.11 (on-demand media client)',...headers},redirect:'manual',signal:AbortSignal.any([signal,AbortSignal.timeout(90000)])});if([301,302,303,307,308].includes(r.status)){await r.body?.cancel();url=new URL(r.headers.get('location'),url).href;continue;}return r;}throw Error('素材重定向次数过多');}
+  async function request(url,signal,headers={},streaming=false){for(let i=0;i<6;i++){
+    validateSource(url,{allowLocalTest});const connect=new AbortController(),timer=setTimeout(()=>connect.abort(new DOMException('连接素材服务超时','TimeoutError')),timeouts.connectMs??90000);let r;
+    try{r=await fetcher(url,{headers:{'User-Agent':'ArkWorkspace/0.12 (on-demand media client)',...headers},redirect:'manual',signal:AbortSignal.any([signal,connect.signal,...(streaming?[]:[AbortSignal.timeout(90000)])])});}finally{clearTimeout(timer);}
+    if([301,302,303,307,308].includes(r.status)){await r.body?.cancel();url=new URL(r.headers.get('location'),url).href;continue;}return r;
+  }throw Error('素材重定向次数过多');}
   async function hash(file,algorithm){const h=crypto.createHash(algorithm);for await(const chunk of createReadStream(file))h.update(chunk);return h.digest('hex');}
   async function transfer(v,target,job,signal,{cover=false}={}){
     const part=target+'.part';let offset=await fs.stat(part).then(s=>s.size,()=>0);if(v.bytes&&offset>=v.bytes){await fs.unlink(part);offset=0;}
-    const r=await request(v.url,signal,offset?{Range:`bytes=${offset}-`}:{});if(!r.ok)throw Error(`素材服务返回 ${r.status}，可稍后重试`);
+    const idle=new AbortController(),transferSignal=AbortSignal.any([signal,idle.signal]);
+    const r=await request(v.url,transferSignal,offset?{Range:`bytes=${offset}-`}:{},true);if(!r.ok)throw Error(`素材服务返回 ${r.status}，可稍后重试`);
     if(r.status===206){const range=/^bytes (\d+)-(\d+)\/(\d+)$/.exec(r.headers.get('content-range')??'');if(!range||Number(range[1])!==offset){await r.body?.cancel();throw Error('服务器返回的续传范围不匹配');}}
     else offset=0;
     const expected=v.bytes||Number(r.headers.get('content-length'))+offset;let received=offset;job.currentBytes=received;job.currentTotal=Number.isFinite(expected)?expected:0;
-    const meter=new Transform({transform(chunk,encoding,callback){received+=chunk.length;job.currentBytes=received;job.updatedAt=Date.now();if(received>(cover?20*1024*1024:Math.max(v.bytes??0,2*1024**3)))return callback(Error('素材超出允许大小'));dirty();callback(null,chunk);}});
-    await pipeline(Readable.fromWeb(r.body),meter,createWriteStream(part,{flags:offset?'a':'w'}),{signal});
+    let idleTimer;const activity=()=>{clearTimeout(idleTimer);idleTimer=setTimeout(()=>idle.abort(new DOMException('素材传输长时间未收到数据','TimeoutError')),timeouts.idleMs??60000);};activity();
+    const meter=new Transform({transform(chunk,encoding,callback){activity();received+=chunk.length;job.currentBytes=received;job.updatedAt=Date.now();if(received>(cover?20*1024*1024:Math.max(v.bytes??0,2*1024**3)))return callback(Error('素材超出允许大小'));dirty();callback(null,chunk);}});
+    try{await pipeline(Readable.fromWeb(r.body),meter,createWriteStream(part,{flags:offset?'a':'w'}),{signal:transferSignal});}catch(error){if(idle.signal.aborted&&!signal.aborted)throw idle.signal.reason;throw error;}finally{clearTimeout(idleTimer);}
     if(expected&&received!==expected){throw Error('下载长度不匹配，请重试');}
     for(const algorithm of ['sha256','sha1'])if(v[algorithm]&&await hash(part,algorithm)!==v[algorithm]){await fs.unlink(part);throw Error('素材校验失败，已丢弃不完整文件，请重试');}
     // Existing verified originals are reused before reaching this point.

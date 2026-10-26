@@ -2,6 +2,8 @@
 $ErrorActionPreference='Stop'
 if($env:GITHUB_ACTIONS -ne 'true' -or $PackageRoot -notlike '*acceptance-sandbox*'){throw 'This integration test requires the disposable GitHub Windows runner'}
 $package=[IO.Path]::GetFullPath($PackageRoot)
+$reportRoot=$package
+if($env:ARK_ACCEPTANCE_ARCHIVE){$package=Join-Path $env:RUNNER_TEMP ('acceptance-sandbox-pristine-'+[guid]::NewGuid().ToString('N'));Expand-Archive -LiteralPath $env:ARK_ACCEPTANCE_ARCHIVE -DestinationPath $package}
 $target=Join-Path $env:RUNNER_TEMP ('acceptance-sandbox-installed '+[guid]::NewGuid().ToString('N'))
 $desktopLink=Join-Path ([Environment]::GetFolderPath('Desktop')) 'Codex 壁纸版.lnk'
 $registry='HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ArkWorkspace'
@@ -40,7 +42,7 @@ try{
  try{& (Join-Path $package 'scripts\Install-Theme.ps1') -Destination $unrelated -SkipShortcuts -SkipRegistry|Out-Null}catch{$rejected=$true}
  if(-not $rejected -or (Get-Content -LiteralPath (Join-Path $unrelated 'keep.txt')) -ne 'unrelated'){throw 'Installer did not preserve unrelated destination'}
  $checks+=@{name='Unrelated nonempty destination is rejected';passed=$true}
- $checks|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $package 'test-results\windows-install-integration.json') -Encoding UTF8
+ $checks|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $reportRoot 'test-results\windows-install-integration.json') -Encoding UTF8
  $checks|ConvertTo-Json -Depth 5
 }finally{
  if(Test-Path -LiteralPath (Join-Path $target 'scripts\Uninstall-Theme.ps1')){& (Join-Path $target 'scripts\Uninstall-Theme.ps1')|Out-Null}

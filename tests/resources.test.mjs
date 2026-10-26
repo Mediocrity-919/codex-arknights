@@ -6,12 +6,15 @@ import path from 'node:path';
 import http from 'node:http';
 import crypto from 'node:crypto';
 import {createResourceManager,validateSource} from '../src/resource-manager.mjs';
-import {resourceCatalog} from '../src/catalog.mjs';
+import {resourceCatalog,professions} from '../src/catalog.mjs';
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
 const until=async predicate=>{const start=Date.now();while(!predicate()){if(Date.now()-start>10000)throw Error('Task did not settle');await new Promise(r=>setTimeout(r,15));}};
 test('resource sources reject arbitrary hosts, credentials, unsafe schemes and ports',()=>{
   assert.equal(validateSource('https://web.hycdn.cn/a.mp4').hostname,'web.hycdn.cn');
   assert.equal(validateSource('https://i.imgs.ovh/2026/image.png').hostname,'i.imgs.ovh');
+  assert.equal(validateSource('https://github.com/Mediocrity-919/codex-arknights/releases/download/wallpapers-v1/yaoyue-4k60.mp4').hostname,'github.com');
+  assert.equal(validateSource('https://release-assets.githubusercontent.com/github-production-release-asset/1434136531/12345678-abcd-abcd-abcd-123456789abc?signature=test').hostname,'release-assets.githubusercontent.com');
+  for(const url of ['https://github.com/other/repo/releases/download/wallpapers-v1/yaoyue-4k60.mp4','https://github.com/Mediocrity-919/codex-arknights/releases/download/wallpapers-v1/other.exe','https://release-assets.githubusercontent.com/github-production-release-asset/999999/12345678-abcd-abcd-abcd-123456789abc'])assert.throws(()=>validateSource(url));
   for(const u of ['file:///etc/passwd','https://127.0.0.1/private','http://prts.wiki/a','https://prts.wiki:9443/a','https://user:pass@prts.wiki/a','https://prts.wiki.evil.example/a','https://i.imgs.ovh.evil.example/a','https://i.imgs.ovh:8443/a','https://i.imgs.ovh/a#fragment'])assert.throws(()=>validateSource(u));
 });
 
@@ -57,4 +60,29 @@ test('on-demand transfers resume, validate, persist, select quality, cancel and 
     slow=true;const cancelled=await manager.action('download',{sceneId:'example',quality:'original'});await until(()=>manager.publicState().jobs.find(j=>j.id===cancelled.id).currentBytes>0);await manager.action('cancel',{id:cancelled.id});await until(()=>manager.publicState().jobs.find(j=>j.id===cancelled.id).status==='cancelled');assert.equal(manager.status('example').original,false);
     catalog.files.clip.original.file='../outside.txt';assert.equal(manager.fileFor('clip','example'),null);await assert.rejects(manager.action('delete-plan',{sceneId:'../invalid',quality:'all'}));
   }finally{await manager.close();server.closeAllConnections();await new Promise(r=>server.close(r));await fs.rm(root,{recursive:true,force:true});}
+});
+
+
+test('active slow downloads outlive connection deadlines while stalled bodies time out',async()=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'ark-slow-body-')),bytes=Buffer.alloc(8*1024,42);
+ const catalog={items:{sample:{assetIds:['sample']}},files:{sample:{original:{file:'media/sample.mp4',url:'https://web.hycdn.cn/sample.mp4',bytes:bytes.length,sha256:sha(bytes),width:3840,height:2160,fps:60}}}};
+ let stall=false;
+ const fetcher=async(url,{signal})=>{
+  let timer,offset=0;
+  return new Response(new ReadableStream({start(controller){const tick=()=>{if(signal.aborted){controller.error(signal.reason);return;}controller.enqueue(bytes.subarray(offset,offset+1024));offset+=1024;if(offset===bytes.length){controller.close();return;}if(!stall)timer=setTimeout(tick,20);};tick();},cancel(){clearTimeout(timer);}}),{headers:{'content-length':String(bytes.length)}});
+ };
+ const manager=await createResourceManager({root,stateDir:path.join(root,'.local'),catalog,scenes:[{id:'sample',kind:'dynamic'}],fetcher,timeouts:{connectMs:30,idleMs:75}});
+ try{
+  assert.equal(manager.status('sample').source4k,true);assert.equal(manager.status('sample').sourceFps,60);
+  const {id}=await manager.action('download',{sceneId:'sample',quality:'original'});await until(()=>manager.publicState().jobs.find(j=>j.id===id).status==='complete');
+  await manager.action('delete',{sceneId:'sample',quality:'original',confirm:true});stall=true;
+  const second=await manager.action('download',{sceneId:'sample',quality:'original'});await until(()=>manager.publicState().jobs.find(j=>j.id===second.id).status==='failed');
+  assert.match(manager.publicState().jobs.find(j=>j.id===second.id).error,/超时/);assert.equal(manager.status('sample').original,false);
+ }finally{await manager.close();await fs.rm(root,{recursive:true,force:true});}
+});
+
+
+test('published snapshot retains profession and rarity for fresh official skin browsing',()=>{
+ assert.ok(resourceCatalog.officialRecords.length>250);
+ for(const row of resourceCatalog.officialRecords){assert.ok(professions.includes(row.profession),'Missing profession for '+row.cid);assert.ok(row.rarity>=1&&row.rarity<=6,'Missing rarity for '+row.cid);}
 });

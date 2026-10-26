@@ -23,11 +23,11 @@ async function run(name,exe,args,{timeout=180000,env={}}={}){
 const group=process.argv[2]??'ui';
 if(group==='ui'){
  for(const script of ['fresh-library-check','controls-usability-check','compatibility-check','boot-ui-check'])await run(script,process.execPath,['scripts/'+script+'.mjs']);
- for(const script of ['beta-usability-check','queue-usability-check'])await run(script,process.execPath,['--import','./scripts/acceptance-fixtures.mjs','scripts/'+script+'.mjs'],{env:{ARK_ACCEPTANCE_SANDBOX:'1'}});
+ for(const script of ['beta-usability-check','queue-usability-check','dynamic-download-ui-check'])await run(script,process.execPath,['--import','./scripts/acceptance-fixtures.mjs','scripts/'+script+'.mjs'],{env:{ARK_ACCEPTANCE_SANDBOX:'1'}});
  for(const script of ['acceptance-operations'])await run(script,process.execPath,['--import','./scripts/acceptance-fixtures.mjs','scripts/'+script+'.mjs'],{env:{ARK_ACCEPTANCE_SANDBOX:'1'}});
 }else if(group==='windows'){
  for(const script of ['tests/boot-readiness-check.ps1','tests/host-startup-check.ps1','scripts/shortcut-recovery-check.ps1','scripts/window-layer-check.ps1','scripts/launcher-lifecycle-check.ps1','scripts/windows-install-acceptance.ps1'])await run(path.basename(script,'.ps1'),'powershell.exe',['-NoProfile','-ExecutionPolicy','Bypass','-File',script],{timeout:260000,env:{PSModulePath:path.join(process.env.WINDIR,'System32/WindowsPowerShell/v1.0/Modules')}});
-}else if(group==='downloads')await run('fresh-download-check',process.execPath,['scripts/fresh-download-check.mjs'],{timeout:600000});
+}else if(group==='downloads'){await run('fresh-download-check',process.execPath,['scripts/fresh-download-check.mjs'],{timeout:600000});await run('yaoyue-download-check',process.execPath,['scripts/yaoyue-download-check.mjs'],{timeout:650000});}
 else throw Error('Unknown acceptance group');
 for(const entry of await fs.readdir(path.join(root,'test-results'))){if(/\.(json|png)$/.test(entry)&&entry!=='acceptance-summary.json'){const source=path.join(root,'test-results',entry),target=path.join(output,entry);if(entry.endsWith('.json'))await fs.writeFile(target,clean(await fs.readFile(source,'utf8')));else await fs.copyFile(source,target);}}
 if(checks.some(c=>!c.passed))process.exitCode=1;
