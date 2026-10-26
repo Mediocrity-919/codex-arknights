@@ -1,0 +1,11 @@
+import fs from 'node:fs/promises';import path from 'node:path';import assert from 'node:assert/strict';import {execFileSync} from 'node:child_process';import {ROOT} from '../src/catalog.mjs';import {CdpSession,listVerifiedTargets} from '../src/cdp.mjs';
+const probe=JSON.parse(execFileSync('powershell.exe',['-NoProfile','-File','scripts/Probe-Host.ps1'],{windowsHide:true,encoding:'utf8'}).replace(/^\uFEFF/,'')),targets=await listVerifiedTargets(probe);assert.equal(targets.length,1);const c=await new CdpSession(targets[0].url).connect();
+const run=async expression=>{const r=await c.call('Runtime.evaluate',{expression,returnByValue:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result.value;};
+const lib=`document.querySelector('#ark-theme-controls')?.shadowRoot.querySelector('#wallpaper-library')?.shadowRoot`;let opened=false;
+try{
+  for(let i=0;i<50;i++){if(await run(`!!${lib}`))break;await new Promise(r=>setTimeout(r,200));}
+  if(await run(`${lib}.querySelector('.shell').hidden`)){await run(`document.querySelector('#ark-theme-nav-button').shadowRoot.querySelector('button').click()`);opened=true;}
+  await new Promise(r=>setTimeout(r,1000));
+  const info=await run(`(()=>{const root=${lib},r=root.querySelector('.shell').getBoundingClientRect(),scroll=root.querySelector('.detail-scroll').getBoundingClientRect();return{clip:{x:r.x,y:r.y,width:r.width,height:r.height,scale:1},controls:[...root.querySelectorAll('.inline-scale,.inline-x,.inline-y')].map(e=>{const b=e.getBoundingClientRect();return{label:e.getAttribute('aria-label'),visible:b.top>=scroll.top&&b.bottom<=scroll.bottom};}),sceneId:window.__ARK_THEME_LAB_V1__.player.diagnostics().sceneId};})()`);
+  assert.ok(info.controls.every(c=>c.visible),'primary framing sliders must be visible without scrolling');const shot=await c.call('Page.captureScreenshot',{format:'png',clip:info.clip,captureBeyondViewport:false});await fs.writeFile(path.join(ROOT,'test-results/native-v07-final-center.png'),Buffer.from(shot.data,'base64'));console.log(JSON.stringify({sceneId:info.sceneId,controls:info.controls}));
+}finally{if(opened)await run(`${lib}.querySelector('.dismiss').click()`).catch(()=>{});c.close();}

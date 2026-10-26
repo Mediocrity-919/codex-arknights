@@ -1,0 +1,47 @@
+// Isolated UI regression: never updates the user's live helper or settings.
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {ROOT,defaults} from '../src/catalog.mjs';
+import {startServer} from '../src/server.mjs';
+const require=createRequire(path.join(process.env.ARK_TEST_MODULES,'package.json'));
+const {chromium}=require('playwright');
+const dir=await fs.mkdtemp(path.join(ROOT,'.local','presets-test-'));
+const lab=await startServer({stateDir:dir,probeHost:async()=>({debuggerVerified:false})});
+const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const page=await browser.newPage({viewport:{width:1480,height:960}}),errors=[];
+page.on('pageerror',e=>errors.push(e.message));
+const api=async(route,body)=>{const r=await fetch(`${lab.origin}/api/${route}`,{method:body?'POST':'GET',headers:{'X-Lab-Token':lab.token,'Content-Type':'application/json',Origin:lab.origin},...(body?{body:JSON.stringify(body)}:{})});assert.equal(r.ok,true);return r.json();};
+const library=page.locator('#wallpaper-library');
+const input=async(selector,value)=>library.locator(selector).evaluate((e,v)=>{e.value=String(v);e.dispatchEvent(new Event('input',{bubbles:true}));},value);
+const checkInputs=async values=>{for(const [key,value] of Object.entries(values))assert.equal(await library.locator(`.inline-${key}`).inputValue(),String(value));};
+const waitState=async predicate=>{for(let i=0;i<80;i++){const state=await api('state');if(predicate(state.settings))return state.settings;await new Promise(r=>setTimeout(r,100));}throw Error('Settings did not settle');};
+try{
+  await api('settings',{...defaults,motion:false,shade:.37});
+  await page.goto(lab.url);await page.locator('#theme-open').click();
+  await library.locator('[data-kind="dynamic"]').click();await library.locator('[data-category="operator"]').click();
+  await library.locator('.search input').fill('Mon3tr');
+  await library.locator('[data-variant="official-5616"]').click();
+  await checkInputs({scale:180,x:30,y:50});
+  await library.locator('.apply').click();
+  await waitState(s=>s.sceneId==='official-5616'&&s.shade===.2&&s.wallpaper.view.scale===1.8);
+  await library.locator('.adjust-current').click();
+  await input('.inline-scale',212);await waitState(s=>s.wallpaper.view.scale===2.12);
+  await library.locator('.inline-reset').click();await waitState(s=>s.wallpaper.view.scale===1.8);
+  await checkInputs({scale:180,x:30,y:50});
+  await input('.inline-scale',195);await waitState(s=>s.wallpaper.view.scale===1.95);
+  await page.reload();await page.locator('#theme-open').click();
+  await checkInputs({scale:195,x:30,y:50});
+  await library.locator('.add-queue').click();
+  await library.locator('.queue-item').first().getByTitle('调整本项构图',{exact:true}).click();
+  await library.locator('.edit-reset').click();assert.equal(await library.locator('.edit-scale').inputValue(),'180');
+  assert.equal(await library.locator('.edit-x').inputValue(),'30');
+  await library.locator('.editor-apply').click();await library.locator('.queue-save').click();
+  await waitState(s=>s.playlists[0]?.items[0]?.wallpaper.view.scale===1.8);
+  await library.locator('.queue-close').click();await library.locator('.search input').fill('恍惚');
+  await checkInputs({scale:100,x:50,y:50});
+  assert.deepEqual(errors,[]);
+  await fs.writeFile(path.join(ROOT,'test-results/presets-v082.json'),JSON.stringify({passed:true,checks:['Initial 180/30/50','Apply shade20','Floating reset','Reload keeps custom195','Queue reset','Four-action default unchanged'],errors},null,2));
+  console.log('6 preset UI checks passed');
+}finally{await browser.close();await lab.close();}

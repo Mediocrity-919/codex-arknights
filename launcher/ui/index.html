@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CODEX · 启动</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'none'; img-src 'self' data:; object-src 'none'; base-uri 'none'">
+<link rel="stylesheet" href="boot.css">
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="grid"></div><div class="cone"></div>
+  <canvas id="dust"></canvas>
+  <div class="bnd bt"></div><div class="bnd bb"></div>
+  <div class="top"><b>▲</b><span>CODEX / WORKSPACE BOOT</span><i></i><span id="clk">T+00:00.000</span></div>
+  <div class="idv">LOCAL THEME<br>v0.12.0 BETA</div>
+  <div class="log" aria-live="polite"><p></p><p></p><p></p><p></p></div>
+  
+  <svg class="emblem" viewBox="0 0 400 400" fill="none" stroke="currentColor" aria-hidden="true">
+    <circle class="ticks" cx="200" cy="200" r="192" stroke-width="2.5" stroke-dasharray="1.2 9.8"/>
+    <circle class="orb" cx="200" cy="200" r="150" stroke-width=".8" stroke-dasharray="40 160 6 40" stroke="#9fdcff"/>
+    <path class="hx h1" d="M200 30L347.2 115V285L200 370L52.8 285V115Z" pathLength="1" stroke-width="1.4"/>
+    <path class="hx h2" d="M200 80L303.9 140V260L200 320L96.1 260V140Z" pathLength="1" stroke-width="1"/>
+    <path class="hx h3" d="M200 130L260.6 165V235L200 270L139.4 235V165Z" pathLength="1" stroke-width=".9" stroke="#ffc21a"/>
+    <path class="sp" d="M200 130V30M260.6 165L347.2 115M260.6 235L347.2 285M200 270V370M139.4 235L52.8 285M139.4 165L52.8 115" pathLength="1" stroke-width=".5" opacity=".6"/>
+    <g class="nodes" fill="currentColor" stroke="none"><circle cx="200" cy="30" r="3"/><circle cx="347.2" cy="115" r="3"/><circle cx="347.2" cy="285" r="3"/><circle cx="200" cy="370" r="3"/><circle cx="52.8" cy="285" r="3"/><circle cx="52.8" cy="115" r="3"/></g>
+    <g class="core"><path d="M166 168L200 200L166 232" stroke-width="9" stroke-linejoin="miter" stroke-linecap="square"/><rect x="208" y="224" width="32" height="8" fill="#ffc21a" stroke="none"/></g>
+  </svg>
+  <div class="title"><h1 id="en">CODEX</h1><h2><span>代码终端</span></h2></div>
+  <div class="trk fo"></div>
+  <div class="pl l fo"></div><div class="pl r fo"></div><div class="pn l fo"><span id="p1">01 / 04</span></div><div class="pn r fo"><span id="p2">01 / 04</span></div>
+  <canvas id="orb3d" class="sph"></canvas>
+  <div class="card fo"><small>STARTUP</small><b>CODEX</b><strong><i>#</i><span id="nn">01</span></strong><small>PHASE / 04</small></div>
+  <div class="stat fo"><b id="sT"></b><span id="sS"></span></div>
+  
+  <canvas id="hexw" class="hw"></canvas><div class="rip"></div>
+  
+  
+
+  <div class="flash"></div>
+  <div class="scan"></div><div class="vig"></div>
+</div>
+<button id="skip" type="button">Esc · 跳过动画</button>
+<script src="boot.js" defer></script>
+</body>
+</html>

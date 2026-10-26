@@ -1,0 +1,35 @@
+{
+  "webview2Sdk": "1.0.3650.58",
+  "resources": [
+    {
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/1.0.3650.58/microsoft.web.webview2.1.0.3650.58.nupkg",
+      "file": ".local\\sdk\\microsoft.web.webview2.1.0.3650.58.nupkg",
+      "sha256": "911a472128c82ac8baa0c486c23342cc9dd6e7dc50d754e676726642ca065c60",
+      "bytes": 8965153
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/oxanium/Oxanium%5Bwght%5D.ttf",
+      "file": "launcher\\ui\\fonts\\Oxanium.ttf",
+      "sha256": "2ce01d946e1e1ffc8d7eecfffbda8623bedd63eaf811a20488c4b69af45babb0",
+      "bytes": 43536
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/oxanium/OFL.txt",
+      "file": "launcher\\ui\\fonts\\Oxanium-OFL.txt",
+      "sha256": "fe17c0f2581d71b4e1ea7e636e7f4877c29223e11bb1dd1a871e8c3f2a86336b",
+      "bytes": 4384
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/sharetechmono/ShareTechMono-Regular.ttf",
+      "file": "launcher\\ui\\fonts\\ShareTechMono.ttf",
+      "sha256": "9ceab1f87414829af259c0f537573ae03ef7dd3147c0b27a36a1a0beb6732677",
+      "bytes": 43272
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/sharetechmono/OFL.txt",
+      "file": "launcher\\ui\\fonts\\ShareTechMono-OFL.txt",
+      "sha256": "9d96f445b6e9c701428811d0177f894874f8d6f07ecc30d568c506542368f3ff",
+      "bytes": 4429
+    }
+  ]
+}

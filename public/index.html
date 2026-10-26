@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ARK / 主题实验室</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+  <aside class="rail">
+    <a class="brand" href="#" aria-label="主题实验室首页"><span class="mark">A<span>∕</span></span><span>ARK<span class="brand-sub">THEME LAB</span></span></a>
+    <div class="rail-caption">PERSONAL WORKSPACE</div>
+    <nav aria-label="主要页面"><button class="nav active" data-tab="scenes"><span>◈</span> 场景实验室 <i>01</i></button><button class="nav" data-tab="startup"><span>◎</span> 唤醒动效 <i>02</i></button><button class="nav" data-tab="integration"><span>⌘</span> 接入与恢复 <i>03</i></button></nav>
+    <div class="rail-bottom"><span class="pulse"></span> 本地运行 · 素材不上传<p>明日方舟风格研究<br>社区独立项目</p><small>WINDOWS BETA / 0.12.0</small></div>
+  </aside>
+  <main>
+    <header class="topbar"><span>你的工作空间 / <b id="page-name">场景实验室</b></span><span class="phase">M1 <span>接入验证阶段</span></span></header>
+    <section id="scenes" class="page active">
+      <div class="page-heading"><div><p class="eyebrow">A QUIETER PLACE TO CREATE</p><h1>让风景，陪你工作。</h1><p class="description">先找到喜欢的光线与氛围，再调到舒服的阅读状态。</p></div><div class="wallpaper-entry-actions"><button class="ghost" id="theme-open">◈ 壁纸库</button><button class="ghost" id="wallpaper-adjust">调整当前壁纸</button></div></div>
+      <div class="workspace">
+        <div class="stage-column">
+          <div class="stage" id="stage">
+            <img id="scene-poster" class="scene-media" alt="当前场景封面"><video id="scene-video" class="scene-media" muted loop playsinline preload="metadata"></video><div class="scene-shade"></div>
+            <div class="stage-top"><span class="live-tag"><i></i> 视觉预览</span></div>
+            <div class="reading-card"><span class="card-eyebrow">READABILITY / 阅读测试</span><h2>保留喜欢的风景，<br>也留得住专注。</h2><p>文字、代码与操作区域拥有独立底色。壁纸强度只改变背景，不会让文字一起变淡。</p><div class="code"><span>const</span> workspace = {<br>&nbsp;&nbsp;mood: <em>"calm"</em>,<br>&nbsp;&nbsp;focus: <em>true</em><br>};</div><label class="input-test"><span>输入测试 · 内容不会发送</span><textarea id="test-input" rows="1" placeholder="在这里试试中文输入…"></textarea></label></div>
+            <div class="stage-bottom"><div><small id="scene-tag">环境场景</small><h3 id="scene-title">邀月</h3><p id="scene-subtitle"></p></div><button id="motion-toggle" class="glass">暂停动态 Ⅱ</button></div>
+          </div>
+          <div class="stage-foot"><span id="playback-status">正在准备封面</span><span>独立调校预览 · 桌面内使用「设置 → 壁纸」或左侧壁纸按钮</span></div>
+        </div>
+      </div>
+    </section>
+    <section id="startup" class="page"><div class="page-heading"><div><p class="eyebrow">WAKE SEQUENCE / MOTION STUDY</p><h1>一次简短的唤醒。</h1><p class="description">Windows 原生启动器已加入：标题页 → 线框唤醒 → 进入真实 Codex。</p></div></div><div class="boot-board"><div><span class="outline-label">VECTOR MOTION</span><h2>从静谧，进入工作。</h2><p>原生启动器使用灰白标题与黄色线框；此处为早期动效研究。<br>矢量绘制随窗口分辨率缩放，动画跟随屏幕刷新。</p><button id="boot-play" class="primary">播放唤醒预览 →</button><small>无音轨 · 随时按 Esc 跳过 · 尊重减少动态效果设置</small></div><div class="orbit-art"><div class="orbit o1"></div><div class="orbit o2"></div><div class="orbit o3"></div><span>ARK<span>WORKSPACE</span></span></div></div><div class="note"><b>参考 dragon-codex-boot 的窗口交接思路</b><p>双击项目里的「ARK启动Codex.cmd」使用桌面启动动画。按 Enter 开始唤醒，Esc 可跳过并进入 Codex。配音尚未加入。</p></div></section>
+    <section id="integration" class="page"><div class="page-heading"><div><p class="eyebrow">HOST CONNECTION / RECOVERY</p><h1>连接之前，先确认。</h1><p class="description">只检测应用信息与界面结构，不读取聊天正文。</p></div><button class="primary" id="probe">检测 Codex ↻</button></div><div class="integration-grid"><article class="connection-card"><div class="card-header"><span class="outline-label">CURRENT HOST</span><span id="host-badge" class="badge">待检测</span></div><h2 id="host-title">Codex 桌面客户端</h2><p id="host-reason">点击检测，查看当前版本和接入条件。</p><dl><div><dt>客户端版本</dt><dd id="host-version">—</dd></div><div><dt>调试入口</dt><dd id="host-debug">尚未检测</dd></div><div><dt>宠物支持</dt><dd>待实际界面验证</dd></div><div><dt>视觉层</dt><dd id="native-state">未应用</dd></div></dl><label class="select-label" for="target">目标窗口</label><select id="target" disabled><option>尚未发现已验证的主窗口</option></select><div class="native-actions"><button id="apply-poster" class="primary" disabled>应用静态探针</button><button id="apply-video" class="ghost" disabled>动态接入实验</button></div><p class="hint">实验使用当前场景与参数。画面是否可见、能否正常输入和审阅，仍需在真实窗口确认。</p></article><article class="recovery-card"><span class="outline-label">ALWAYS REVERSIBLE</span><h2>随时回到原来的界面。</h2><p>接入只添加本次会话的视觉层。恢复会移除本工具的样式、媒体与事件监听。</p><button id="restore" class="ghost wide" disabled>恢复本次视觉改动 ↶</button><div class="shortcut"><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>⌫</kbd><span>在 Codex 窗口中紧急恢复</span></div><p class="hint">管理器异常退出后，视觉层会在约 21 秒内自动清理。调试接口需完全退出 Codex 才会关闭。</p><hr><h3>首次接入的顺序</h3><ol><li>保存工作，从托盘完全退出 Codex。</li><li>双击项目内的「退出Codex后验证接入.cmd」。</li><li>返回这里检测，先测试静态探针与恢复。</li><li>静态接入通过后，再测试动态视频。</li></ol><p class="hint">专用启动会开放仅限本机的调试接口。它具有界面访问权限，只在验证时使用；普通启动入口保持原样。</p></article></div></section>
+    <footer>ARK THEME LAB <span>让美化成为陪伴，让工作保持清晰。</span><a href="https://github.com/yushua0808-cpu/dragon-codex-boot" target="_blank" rel="noreferrer">参考项目 ↗</a></footer>
+  </main>
+  <dialog id="theme-dialog" aria-label="场景与画面设置"><div class="drawer-header"><h2>画面调校</h2><button class="ghost" id="theme-close">收起 ×</button></div>          <div class="library-heading"><h2>动态快捷选择 <span>04</span></h2><span>原始素材 · 仅本地读取</span></div><div id="scene-list" class="scene-list" aria-label="选择场景"></div>
+<div class="inspector"><div class="inspector-heading"><h2>画面调校</h2><span>LIVE</span></div><div class="preset-row" role="group" aria-label="阅读模式"><button data-mode="focus">专注</button><button data-mode="balanced" class="selected">均衡</button><button data-mode="immersive">沉浸</button></div>
+          <label class="control">壁纸强度 <output for="strength"></output><input id="strength" type="range" min="0" max="100" step="1"></label>
+          <label class="control">背景模糊 <output for="blur"></output><input id="blur" type="range" min="0" max="24" step="1"></label>
+          <label class="control">明暗遮罩 <output for="shade"></output><input id="shade" type="range" min="0" max="85" step="1"></label>
+          <label class="control">页面透明度 <output for="panel"></output><input id="panel" type="range" min="0" max="100" step="1"></label>
+          <label class="control">顶部磨砂 <output for="chromeBlur"></output><input id="chromeBlur" type="range" min="0" max="24" step="1"></label>
+          <label class="control">右侧卡片磨砂 <output for="summaryBlur"></output><input id="summaryBlur" type="range" min="0" max="24" step="1"></label>
+          <p class="hint">顶部与右侧卡片设置在桌面客户端生效。顶部联动菜单栏与标题栏；输入框透明度与磨砂同时调节上方项目栏。0 表示关闭磨砂。</p>
+          <label class="control">输入框磨砂 <output for="composerBlur"></output><input id="composerBlur" type="range" min="0" max="24" step="1"></label><label class="control">输入框透明度 <output for="composerOpacity"></output><input id="composerOpacity" type="range" min="0" max="100" step="1"></label>
+          <div class="divider"></div><div class="section-label">人物与构图 <span>调整当前场景</span></div>
+          <label class="control small">水平焦点 <output for="focusX"></output><input id="focusX" type="range" min="0" max="100" step="1"></label>
+          <label class="control small">垂直焦点 <output for="focusY"></output><input id="focusY" type="range" min="0" max="100" step="1"></label>
+          <div class="divider"></div><label class="select-label" for="quality">画质与动态</label><select id="quality"><option value="original">原片 · 保留源分辨率与帧率</option><option value="still">静态封面 · 低占用</option></select><p class="hint">原片未经压缩。实际流畅度取决于显示器、解码与设备性能；源帧率不等于实际播放帧率。</p>
+          <div class="save-line"><span id="save-state">设置保存在本机</span><span>●</span></div><button class="primary wide" id="go-integration">检查 Codex 接入 <span>↗</span></button><p class="hint centered">先完成静态探针，再验证动态视频。</p></div><button class="ghost wide" id="reset">恢复场景预设 ↺</button></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <dialog id="boot-dialog" aria-label="唤醒动效预览"><canvas id="boot-canvas"></canvas><div class="boot-copy"><p>PERSONAL WORKSPACE</p><h2>ARK <span>∕</span></h2><p id="boot-caption">开始唤醒</p></div><button id="boot-skip" class="ghost">跳过 ESC ↗</button></dialog>
+  <script type="module" src="/app.js"></script>
+</body></html>

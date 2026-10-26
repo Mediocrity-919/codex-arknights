@@ -1,0 +1,47 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {ROOT,scenes,defaults} from '../src/catalog.mjs';
+import {createMediaDeck} from '../src/compositor.mjs';
+import {createWallpaperPlayer} from '../src/wallpaper-runtime.mjs';
+import {startServer} from '../src/server.mjs';
+const require=createRequire(path.join(process.env.ARK_TEST_MODULES,'package.json')),{chromium}=require('playwright');
+const dir=await fs.mkdtemp(path.join(ROOT,'.local','usability-test-')),lab=await startServer({stateDir:dir,probeHost:async()=>({debuggerVerified:false})});
+const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'}),page=await browser.newPage({viewport:{width:1707,height:912}}),results=[],errors=[];
+page.on('pageerror',e=>errors.push(e.message));
+const api=async(route,body)=>{const r=await fetch(`${lab.origin}/api/${route}`,{method:body?'POST':'GET',headers:{'X-Lab-Token':lab.token,'Content-Type':'application/json',Origin:lab.origin},...(body?{body:JSON.stringify(body)}:{})});const v=await r.json();assert.equal(r.ok,true,JSON.stringify(v));return v;};
+const media=(id,type)=>`${lab.origin}/media/${id}/${type}?key=${lab.token}`,catalog=scenes.map(s=>({...s,poster:media(s.id,'poster'),thumb:media(s.id,'thumb'),video:s.kind==='dynamic'?media(s.id,'video'):null,clips:s.clips?.map(c=>({...c,video:media(c.id,'video')}))}));
+const range=async(selector,value)=>page.locator(selector).evaluate((e,v)=>{e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));},String(value));
+const wait=fn=>page.waitForFunction(fn,null,{timeout:20000});
+try{
+  await api('settings',{...defaults,sceneId:'eyja'});await page.goto(lab.url);await page.locator('#theme-open').filter({hasText:'壁纸库'}).click();
+  const lib=page.locator('#wallpaper-library');await lib.locator('.inline-scale').waitFor();
+  assert.equal(await lib.locator('.card').count(),4);assert.match(await lib.locator('.total').textContent(),/纯烬艾雅法拉.*4/);
+  await range('#wallpaper-library .inline-scale',118);await range('#wallpaper-library .inline-x',57);await page.waitForTimeout(800);
+  let state=await api('state');assert.equal(state.settings.wallpaper.view.scale,1.18);assert.equal(state.settings.wallpaper.view.x,57);assert.equal(state.settings.sceneId,'eyja');
+  await range('#wallpaper-library [data-appearance="panel"]',92);await page.waitForTimeout(550);assert.ok(Math.abs((await api('state')).settings.panel-.08)<.0001);
+  await lib.locator('.search input').fill('后来的故事');await lib.locator('.card').click();assert.equal(await lib.locator('.card').count(),4,'skin query must retain siblings');
+  await lib.locator('[data-kind="static"]').click();await lib.locator('.search input').fill('Mon3tr');await lib.locator('.card').click();assert.ok(await lib.locator('.card').count()>=3);
+  await lib.locator('.card').nth(2).click();const selected=await lib.locator('.card').nth(2).getAttribute('data-id');await range('#wallpaper-library .inline-scale',132);await lib.locator('.apply').click();await lib.locator('.status').filter({hasText:'已应用'}).waitFor();
+  state=await api('state');assert.equal(state.settings.sceneId,selected);assert.equal(state.settings.wallpaper.subject.scale,1.32);
+  await range('#wallpaper-library .inline-scale',121);await page.waitForTimeout(600);assert.equal((await api('state')).settings.wallpaper.subject.scale,1.21);
+  await page.screenshot({path:path.join(ROOT,'test-results/v07-library.png')});
+  results.push({check:'current wallpaper inline transforms and appearance persist; all operator variants remain visible through skin search; apply then live-edit static art',passed:true});
+  await page.goto(lab.origin+'/test');await page.setContent('<style>body{margin:0;background:black}#deck{position:absolute;inset:0;overflow:hidden}</style><div id="deck"></div>');
+  await page.evaluate(`window.createDeck=${createMediaDeck.toString()};window.player=(${createWallpaperPlayer.toString()})(document.querySelector('#deck'),{catalog:${JSON.stringify(catalog)}},createDeck);window.config={sceneId:'official-202307865',wallpaper:{sceneId:'official-202307865',view:{scale:1,x:50,y:50}},motion:true};`);
+  await page.evaluate(()=>player.update(config));await wait(()=>player.diagnostics().standbyReady);await page.waitForTimeout(900);
+  const before=await page.evaluate(()=>player.diagnostics());
+  await page.evaluate(async()=>{for(let i=0;i<20;i++){config.wallpaper.view={scale:1+i*.01,x:50+i*.2,y:50};await player.update(config);}});
+  const after=await page.evaluate(()=>player.diagnostics());assert.equal(after.activeSlot,before.activeSlot);assert.equal(after.clipIndex,before.clipIndex);assert.ok(after.slots[after.activeSlot].time>=before.slots[before.activeSlot].time);assert.equal(after.events.filter(e=>e.type==='scene').length,1);
+  const backing=await page.evaluate(()=>{const c=document.querySelectorAll('#deck canvas')[player.diagnostics().activeSlot];const data=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let sum=0;for(let i=0;i<data.length;i+=4)sum+=data[i]+data[i+1]+data[i+2];return{opacity:c.style.opacity,brightness:sum/(data.length/4*3)};});assert.equal(backing.opacity,'1');assert.ok(backing.brightness>10);
+  results.push({check:'20 geometry edits preserve official action, decoder, playback time and preload; contain backing contains real frame pixels',backing,passed:true});
+  await page.evaluate(async()=>{window.changes=[];window.rapid=[player.update({sceneId:'eyja',motion:true})];await new Promise(r=>setTimeout(r,80));rapid.push(player.update({sceneId:'shu-1',motion:true}));await new Promise(r=>setTimeout(r,50));rapid.push(player.update({sceneId:'eyja',motion:true}));await Promise.all(rapid);});
+  await wait(()=>player.diagnostics().sceneId==='eyja'&&!player.diagnostics().transitioning);assert.equal(await page.locator('#deck video').count(),2);
+  await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=96;canvas.height=54;const ctx=canvas.getContext('2d',{willReadFrequently:true});window.pixelSamples=[];window.pixelTimer=setInterval(()=>{const d=player.diagnostics(),v=document.querySelectorAll('#deck video')[d.activeSlot];if(!v||v.readyState<2)return;ctx.drawImage(v,0,0,96,54);const bytes=ctx.getImageData(0,0,96,54).data;let sum=0;for(let i=0;i<bytes.length;i+=4)sum+=bytes[i]+bytes[i+1]+bytes[i+2];pixelSamples.push({scene:d.sceneId,time:v.currentTime,mean:sum/(5184*3),transition:d.transitioning});},100);});
+  // Two full natural loops, with no seeking to disguise the seam.
+  await page.waitForTimeout(61000);
+  const natural=await page.evaluate(()=>{clearInterval(pixelTimer);return{samples:pixelSamples,diagnostics:player.diagnostics()};});await fs.writeFile(path.join(ROOT,'test-results/v07-natural-pixels.json'),JSON.stringify(natural,null,2));assert.ok(natural.samples.length>400);assert.equal(natural.samples.filter(s=>s.mean<8).length,0);assert.ok(natural.diagnostics.events.filter(e=>e.type==='loop').length>=2);
+  results.push({check:'rapid replacement converges on last selection; Eyja two natural loops have no sampled black video frames',samples:natural.samples.length,minLuma:Math.min(...natural.samples.map(s=>s.mean)),events:natural.diagnostics.events,passed:true});
+  await fs.writeFile(path.join(ROOT,'test-results/v07-usability.json'),JSON.stringify({results,errors},null,2));assert.deepEqual(errors,[]);console.log(JSON.stringify({results,errors},null,2));
+}catch(e){await page.screenshot({path:path.join(ROOT,'test-results/v07-failure.png')}).catch(()=>{});throw e;}finally{await browser.close();await lab.close();if(path.dirname(dir)!==path.join(ROOT,'.local'))throw Error('Unexpected test path');await fs.rm(dir,{recursive:true,force:true});}
