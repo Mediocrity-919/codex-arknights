@@ -5,17 +5,20 @@ import crypto from 'node:crypto';
 import {pipeline} from 'node:stream/promises';
 import {Transform,Readable} from 'node:stream';
 import {spawn} from 'node:child_process';
+import {configureDownloadNetwork} from './download-network.mjs';
 
-const hosts=new Set(['media.prts.wiki','prts.wiki','web.hycdn.cn','ak.hycdn.cn','patchwiki.biligame.com','wiki.biligame.com']);
+const hosts=new Set(['media.prts.wiki','prts.wiki','web.hycdn.cn','ak.hycdn.cn','patchwiki.biligame.com','wiki.biligame.com','i.imgs.ovh']);
 const terminal=new Set(['complete','failed','cancelled','interrupted']);
 export function validateSource(value,{allowLocalTest=false}={}){
   const u=new URL(value);if(u.username||u.password||u.hash||(!allowLocalTest&&(u.protocol!=='https:'||u.port&&!['443',''].includes(u.port)||!hosts.has(u.hostname)))||(allowLocalTest&&!(u.protocol==='http:'&&u.hostname==='127.0.0.1')&&!(u.protocol==='https:'&&hosts.has(u.hostname))))throw Error('素材来源未获允许');return u;
 }
-export async function createResourceManager({root,stateDir,catalog,scenes,fetcher=fetch,allowLocalTest=false,onRevision=()=>{}}){
+export async function createResourceManager({root,stateDir,catalog,scenes,fetcher,allowLocalTest=false,onRevision=()=>{}}){
+  fetcher??=async(url,options)=>{await configureDownloadNetwork();return fetch(url,options);};
   root=path.resolve(root);await fs.mkdir(stateDir,{recursive:true});const realRoot=await fs.realpath(root);
   const welcome=path.join(root,'public/assets/welcome.svg'),byId=new Map(scenes.map(s=>[s.id,s]));
   const stateFile=path.join(stateDir,'resources.json');let data={preferences:{},receipts:{},jobs:[],quality:'auto',performance:'auto'},revision=0,writing=Promise.resolve(),timer,pumping=false,closed=false;
   const controllers=new Map(),coverWork=new Map(),coverControllers=new Set(),auxChildren=new Set(),degraded=new Set();
+  const coverQueue=[],coverRetryAfter=new Map();let activeCovers=0;
   try{Object.assign(data,JSON.parse(await fs.readFile(stateFile,'utf8')));for(const j of data.jobs)if(!terminal.has(j.status)){j.status='interrupted';j.error='上次任务被中断，可点击重试继续';}}catch(e){if(e.code!=='ENOENT'&&!(e instanceof SyntaxError))throw e;}
   let runtime={};try{runtime=JSON.parse(await fs.readFile(path.join(stateDir,'runtime.json'),'utf8'));}catch{}
   const resolveRuntime=p=>p?(path.isAbsolute(p)?p:path.resolve(root,p)):null;
@@ -87,12 +90,21 @@ export async function createResourceManager({root,stateDir,catalog,scenes,fetche
         if(job.quality==='4k'&&!isPresent(asset.id,'4k')){const target=await safe(asset.variants['4k'].file,true);data.receipts[`${asset.id}:4k`]=await upscale(asset,target,job,signal);bump();}
         job.completed++;dirty();}
       data.preferences[job.sceneId]=job.quality;job.status='complete';job.stage='complete';job.message='已完成，可应用壁纸';void ensurePoster(job.sceneId).catch(()=>{});bump();
-    }catch(e){job.status=signal.aborted?'cancelled':'failed';job.error=signal.aborted?'任务已取消，可重试继续下载':e.message;}
+    }catch(e){job.status=signal.aborted?'cancelled':'failed';job.error=signal.aborted?'任务已取消，可重试继续下载':e.name==='TimeoutError'?'素材下载超时，请检查网络或系统代理后重试':e.message==='fetch failed'?'无法连接素材服务，请检查网络或系统代理后重试':e.message;}
     finally{controllers.delete(job.id);job.updatedAt=Date.now();await save();}
   }
   async function pump(){if(pumping||closed)return;pumping=true;try{let job;while(!closed&&(job=data.jobs.find(j=>j.status==='queued')))await execute(job);}finally{pumping=false;}}
-  async function ensurePoster(id){if(posterPath(id)!==welcome)return posterPath(id);if(coverWork.has(id))return coverWork.get(id);const url=catalog.items[id]?.cover;if(!url)return welcome;
-    const controller=new AbortController();coverControllers.add(controller);const work=(async()=>{const target=await safe(path.relative(root,path.join(stateDir,'covers',id+'.img')),true);await transfer({url},target,{},controller.signal,{cover:true});bump();return target;})().finally(()=>{coverWork.delete(id);coverControllers.delete(controller);});coverWork.set(id,work);return work;
+  function pumpCovers(){
+    while(activeCovers<2&&coverQueue.length){const task=coverQueue.shift();activeCovers++;
+      task.run().then(task.resolve,task.reject).finally(()=>{activeCovers--;pumpCovers();});}
+  }
+  async function ensurePoster(id){if(posterPath(id)!==welcome)return posterPath(id);if(coverWork.has(id))return coverWork.get(id);const url=catalog.items[id]?.cover;if(!url||closed||coverQueue.length>=48||Date.now()<(coverRetryAfter.get(id)??0))return welcome;
+    const controller=new AbortController();coverControllers.add(controller);
+    const work=new Promise((resolve,reject)=>{coverQueue.push({resolve,reject,run:async()=>{
+      controller.signal.throwIfAborted();const target=await safe(path.relative(root,path.join(stateDir,'covers',id+'.img')),true);
+      await transfer({url},target,{},controller.signal,{cover:true});coverRetryAfter.delete(id);bump();return target;
+    }});}).catch(error=>{coverRetryAfter.set(id,Date.now()+30000);throw error;}).finally(()=>{coverWork.delete(id);coverControllers.delete(controller);});
+    coverWork.set(id,work);pumpCovers();return work;
   }
   function publicState(){return{revision,capabilities:capabilities(),jobs:data.jobs.slice(-40).map(({assetId,...j})=>j)};}
   async function action(action,payload={},references=()=>({})){const {sceneId}=payload;

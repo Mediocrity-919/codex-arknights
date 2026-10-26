@@ -1,12 +1,12 @@
 {
   "name": "codex-arknights",
-  "version": "0.12.1",
+  "version": "0.12.2",
   "private": true,
   "type": "module",
   "description": "Windows desktop wallpaper companion beta for Codex / ChatGPT.",
   "license": "MIT",
   "engines": {
-    "node": ">=22"
+    "node": ">=24.14.0"
   },
   "scripts": {
     "start": "node src/server.mjs",

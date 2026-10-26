@@ -27,7 +27,7 @@ if($SourceOnly){Write-Output (Join-Path $output "$artifactName-$version-source.z
 if(-not $NodePath){$NodePath=Get-ThemeNode}
 $node=(Resolve-Path -LiteralPath $NodePath).Path
 $nodeVersion=(& $node -p 'process.versions.node').Trim()
-if([int]$nodeVersion.Split('.')[0] -lt 22){throw 'Node runtime is too old'}
+if([version]$nodeVersion -lt [version]'24.14.0'){throw 'Node runtime is too old'}
 if((& $node -p 'process.arch').Trim() -ne 'x64'){throw 'This package targets Windows x64; select an x64 Node runtime'}
 $nodeDirectory=Join-Path $staging 'runtime\node';New-Item -ItemType Directory -Path $nodeDirectory -Force | Out-Null
 Copy-Item -LiteralPath $node -Destination (Join-Path $nodeDirectory 'node.exe')

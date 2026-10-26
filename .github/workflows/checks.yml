@@ -12,6 +12,7 @@ jobs:
           node-version: '24'
           package-manager-cache: false
       - run: node --test tests/*.test.mjs
+      - run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/boot-readiness-check.ps1
       - shell: powershell
         run: |
           Get-ChildItem scripts -Filter *.ps1 | ForEach-Object {

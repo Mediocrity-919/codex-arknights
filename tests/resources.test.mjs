@@ -6,11 +6,37 @@ import path from 'node:path';
 import http from 'node:http';
 import crypto from 'node:crypto';
 import {createResourceManager,validateSource} from '../src/resource-manager.mjs';
+import {resourceCatalog} from '../src/catalog.mjs';
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
 const until=async predicate=>{const start=Date.now();while(!predicate()){if(Date.now()-start>10000)throw Error('Task did not settle');await new Promise(r=>setTimeout(r,15));}};
 test('resource sources reject arbitrary hosts, credentials, unsafe schemes and ports',()=>{
   assert.equal(validateSource('https://web.hycdn.cn/a.mp4').hostname,'web.hycdn.cn');
-  for(const u of ['file:///etc/passwd','https://127.0.0.1/private','http://prts.wiki/a','https://prts.wiki:9443/a','https://user:pass@prts.wiki/a','https://prts.wiki.evil.example/a'])assert.throws(()=>validateSource(u));
+  assert.equal(validateSource('https://i.imgs.ovh/2026/image.png').hostname,'i.imgs.ovh');
+  for(const u of ['file:///etc/passwd','https://127.0.0.1/private','http://prts.wiki/a','https://prts.wiki:9443/a','https://user:pass@prts.wiki/a','https://prts.wiki.evil.example/a','https://i.imgs.ovh.evil.example/a','https://i.imgs.ovh:8443/a','https://i.imgs.ovh/a#fragment'])assert.throws(()=>validateSource(u));
+});
+
+test('every published download and cover URL passes the production source policy',()=>{
+  let checked=0;
+  for(const variants of Object.values(resourceCatalog.files))for(const variant of Object.values(variants))if(variant?.url){validateSource(variant.url);checked++;}
+  for(const item of Object.values(resourceCatalog.items))if(item.cover){validateSource(item.cover);checked++;}
+  assert.ok(checked>3000,'The entire published catalog must be checked');
+});
+
+test('fresh cover cache fetches once per item, limits concurrency and rejects unsafe redirects',async()=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'ark-fresh-cover-')),items={},files={},scenes=[];
+  for(let i=0;i<6;i++){const id='wall-'+i;items[id]={assetIds:[id],cover:`https://i.imgs.ovh/${id}.png`};files[id]={original:{url:items[id].cover,file:`media/${id}.png`}};scenes.push({id,kind:'static'});}
+  let active=0,peak=0,calls=0;
+  const fetcher=async(url,{signal})=>{calls++;active++;peak=Math.max(peak,active);await new Promise(r=>setTimeout(r,30));active--;signal.throwIfAborted();return new Response(Buffer.from('cover'),{headers:{'content-length':'5'}});};
+  const manager=await createResourceManager({root,stateDir:path.join(root,'.local'),catalog:{items,files},scenes,fetcher});
+  try{
+    assert.match(manager.posterPath('wall-0'),/welcome.svg$/);
+    const paths=await Promise.all([...scenes,scenes[0]].map(s=>manager.ensurePoster(s.id)));
+    assert.equal(calls,6);assert.equal(peak,2);assert.equal(paths[0],paths[6]);
+    assert.equal(await fs.readFile(manager.posterPath('wall-0'),'utf8'),'cover');
+  }finally{await manager.close();await fs.rm(root,{recursive:true,force:true});}
+  const root2=await fs.mkdtemp(path.join(os.tmpdir(),'ark-cover-redirect-'));let redirects=0;
+  const blocked=await createResourceManager({root:root2,stateDir:path.join(root2,'.local'),catalog:{items,files},scenes,fetcher:async()=>{redirects++;return new Response(null,{status:302,headers:{location:'http://127.0.0.1/private'}});}});
+  try{await assert.rejects(blocked.ensurePoster('wall-0'),/素材来源未获允许/);assert.equal(redirects,1);}finally{await blocked.close();await fs.rm(root2,{recursive:true,force:true});}
 });
 test('on-demand transfers resume, validate, persist, select quality, cancel and delete only confirmed unused files',async()=>{
   const root=await fs.mkdtemp(path.join(os.tmpdir(),'ark-resource-test-')),bytes=Buffer.alloc(512*1024,71);let failOnce=true,rangeSeen=false,slow=false;

@@ -1,0 +1,17 @@
+import fs from 'node:fs/promises';import path from 'node:path';import http from 'node:http';import assert from 'node:assert/strict';import {createRequire} from 'node:module';
+import {ROOT} from '../src/catalog.mjs';
+const require=createRequire(path.join(process.env.ARK_TEST_MODULES,'package.json')),{chromium}=require('playwright');
+const html=`<!doctype html><div id="fixture"></div><script type="module">
+import {createWallpaperLibrary} from '/src/wallpaper-library.mjs';import {createWallpaperPlayer} from '/src/wallpaper-runtime.mjs';import {createMediaDeck} from '/src/media-player.mjs';
+const scenes=Array.from({length:36},(_,i)=>({id:'wall-'+i,name:'Background '+String(i).padStart(2,'0'),operator:'Background '+String(i).padStart(2,'0'),kind:'static',category:'background',role:'complete',profession:'',rarity:0,variant:'Fixture',fit:'cover',width:1600,height:900,poster:'/placeholder.svg',thumb:'/placeholder.svg',posterAvailable:false,available:false,resource:{downloadable:true,original:false}}));
+window.requests=[];window.api=createWallpaperLibrary(document.querySelector('#fixture'),{scenes,selectedId:'wall-0',settings:{sceneId:'wall-0',playlists:[],savedWallpapers:[]},createWallpaperPlayer,createMediaDeck,onResource:async(action,{sceneId})=>{if(action==='preview'){window.requests.push(sceneId);setTimeout(()=>{const s=scenes.find(x=>x.id===sceneId);s.poster=s.thumb='/cover.svg';s.posterAvailable=true;api.resources({},[s]);},40);}return {queued:true};}});await api.open();window.ready=true;
+</script>`;
+const server=http.createServer(async(req,res)=>{if(req.url==='/'){res.setHeader('Content-Type','text/html');res.end(html);return;}if(req.url?.endsWith('.svg')){res.setHeader('Content-Type','image/svg+xml');res.end('<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900"><rect width="1600" height="900" fill="'+(req.url==='/cover.svg'?'#aabbcc':'#111111')+'"/></svg>');return;}if(/^\/src\/[a-z-]+\.mjs$/.test(req.url??'')){res.setHeader('Content-Type','application/javascript');res.end(await fs.readFile(path.join(ROOT,req.url)));return;}res.writeHead(404);res.end();});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch({headless:true,executablePath:process.env.ARK_CHROME??'C:/Program Files/Google/Chrome/Application/chrome.exe'}),page=await browser.newPage({viewport:{width:1400,height:850}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+try{
+ await page.goto('http://127.0.0.1:'+server.address().port);await page.waitForFunction(()=>window.ready&&window.requests.length>=3);
+ await page.waitForFunction(()=>[...document.querySelector('#fixture').shadowRoot.querySelectorAll('.card img')].filter(x=>x.getAttribute('src')==='/cover.svg').length>=3);
+ const first=await page.evaluate(()=>({requests:requests.length,unique:new Set(requests).size,disabled:document.querySelector('#fixture').shadowRoot.querySelector('.apply').disabled}));assert.equal(first.requests,first.unique);assert.ok(first.requests<36);assert.equal(first.disabled,true);
+ await page.evaluate(()=>{document.querySelector('#fixture').shadowRoot.querySelector('.scroll').scrollTop=1200;});await page.waitForFunction(n=>requests.length>n,first.requests);
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({visibleCardsLoad:true,offscreenDeferred:true,cardsRefresh:true,undownloadedApplyDisabled:true,errors}));
+}finally{await browser.close();server.closeAllConnections();await new Promise(r=>server.close(r));}

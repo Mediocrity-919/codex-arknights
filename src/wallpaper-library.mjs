@@ -117,11 +117,15 @@ export function createWallpaperLibrary(host, {scenes, selectedId, settings={}, r
     $('.preview').replaceChildren();$('.preview').classList.add('composed');$('.preview').style.aspectRatio=`${innerWidth}/${innerHeight}`;previewMotion=false;if(presentationMode!=='adjust'){previewPlayer=createWallpaperPlayer($('.preview'),{catalog:scenes,transitionMs:0},createMediaDeck);previewPlayer.update({sceneId:scene.id,wallpaper:makeConfig(scene),motion:false});}
     const {queue,item}=playingItem();inlineContext=scene.id===current?{sceneId:scene.id,queueId:queue?.id,itemId:item?.id}:null;inlineTarget=scene.kind==='static'&&scene.category==='operator'?'subject':'view';renderInline();
     $('.apply').disabled=scene.available===false||(scene.id===current&&!local.activePlaylistId)||busy;$('.apply').textContent=scene.available===false?'请先下载素材':scene.id===current?'正在使用':'应用这张壁纸';renderResourceButtons();
-    if(onResource&&scene.posterAvailable===false&&scene.resource?.downloadable)void onResource('preview',{sceneId:scene.id}).catch(()=>{});
+    requestCover(scene);
   }
+  const requestedCovers=new Set();
+  function requestCover(scene){if(!onResource||!scene||scene.posterAvailable!==false||!scene.resource?.downloadable||requestedCovers.has(scene.id))return;requestedCovers.add(scene.id);void onResource('preview',{sceneId:scene.id}).catch(()=>requestedCovers.delete(scene.id));}
+  const coverObserver=typeof IntersectionObserver==='function'?new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting){requestCover(all.get(entry.target.dataset.id));coverObserver.unobserve(entry.target);}},{root:$('.scroll'),rootMargin:'120px'}):null;
+  function refreshCardCovers(){for(const card of $$('.card')){const scene=all.get(card.dataset.id),img=card.querySelector('img');if(!scene||!img)continue;const source=scene.thumb||scene.poster;const ready=String(scene.posterAvailable!==false);if(img.getAttribute('src')!==source||img.dataset.posterReady!==ready){img.src=source;img.dataset.posterReady=ready;}}}
   function markCards(){for(const card of $$('.card'))card.dataset.chosen=String(familyName?card.dataset.id===chosen?.id:card.dataset.operator===chosen?.operator);}
   function render(){
-    if(!open)return;stopPreview();
+    if(!open)return;stopPreview();coverObserver?.disconnect();requestedCovers.clear();
     if(presentationMode==='adjust'){setDetail(all.get(current));return;}
     for(const button of $$('[data-kind]'))button.setAttribute('aria-pressed',String(button.dataset.kind===kind));
     for(const button of $$('[data-category]'))button.setAttribute('aria-pressed',String(button.dataset.category===category));
@@ -135,13 +139,14 @@ export function createWallpaperLibrary(host, {scenes, selectedId, settings={}, r
     $('.pager span').textContent=`${page+1} / ${pages}`;$('.previous').disabled=page===0;$('.next').disabled=page>=pages-1;
     for(const group of list.slice(page*pageSize,(page+1)*pageSize)){
       const scene=group.items.find(s=>s.id===current)||group.items[0],button=document.createElement('button');button.className='card';button.dataset.operator=group.name;button.dataset.id=scene.id;button.dataset.background=String(category==='background');button.dataset.dynamic=String(kind==='dynamic');button.setAttribute('aria-label',`${group.name}，${group.items.length}个版本`);
-      const art=document.createElement('div');art.className='art';const img=new Image();img.loading='lazy';img.decoding='async';img.alt='';img.src=scene.thumb||scene.poster;art.append(img);
+      const art=document.createElement('div');art.className='art';const img=new Image();img.loading='lazy';img.decoding='async';img.alt='';img.src=scene.thumb||scene.poster;img.dataset.posterReady=String(scene.posterAvailable!==false);art.append(img);
       const badge=document.createElement('span');badge.className='profession';badge.textContent=scene.profession||'背景';art.append(badge);
       const stars=document.createElement('span');stars.className='stars';stars.textContent='★'.repeat(scene.rarity||0);art.append(stars);
       if(group.items.some(s=>s.id===current)){const active=document.createElement('span');active.className='active-tag';active.textContent='使用中';art.append(active);}
       const info=document.createElement('div');info.className='info';const name=document.createElement('strong');name.textContent=group.name;name.title=group.name;const count=document.createElement('span');count.className='count';count.textContent=category==='background'?(kind==='dynamic'?'动态背景 · 可直接应用':'完整壁纸 · 可直接应用'):family?(scene.collection??(kind==='static'?'静态立绘':'本地动态'))+(scene.clips?` · ${scene.clips.length} 段自动连播`:''):`${group.items.length} 款立绘 / 时装 · 点击展开`;info.append(name,count);button.append(art,info);if(addTargetId&&(family||category==='background')){const quick=document.createElement('button');quick.className='queue-card-add';quick.setAttribute('role','button');quick.tabIndex=0;quick.textContent='＋ 加入';quick.setAttribute('aria-label',`添加 ${scene.variant||scene.name} 到目标队列`);const add=e=>{e.stopPropagation();e.preventDefault();addToQueue(makeConfig(scene));quick.textContent='已添加 · ＋';};quick.onclick=add;quick.onkeydown=e=>{if(e.key==='Enter'||e.key===' ')add(e);};button.append(quick);}button.onclick=()=>{if(!family&&category==='operator'){familyName=group.name;chosen=scene;page=0;render();return;}setDetail(scene,family?.items??group.items);markCards();};const quick=button.querySelector('.queue-card-add');if(quick){const wrapper=document.createElement('div');wrapper.className='queue-card-wrap';wrapper.append(button,quick);$('.grid').append(wrapper);}else $('.grid').append(button);
     }
     const selected=list.find(g=>g.items.some(s=>s.id===chosen?.id))??list.find(g=>g.items.some(s=>s.id===current))??list[0];
+    for(const card of $$('.card')){if(coverObserver)coverObserver.observe(card);else requestCover(all.get(card.dataset.id));}
     setDetail(selected?.items.find(s=>s.id===chosen?.id)||selected?.items.find(s=>s.id===current)||selected?.items[0],family?.items??selected?.items);markCards();$('.scroll').scrollTop=0;
     $('.inventory').textContent=`立绘 ${scenes.filter(s=>s.kind==='static'&&s.category==='operator').length} · 场景 ${sceneBackgrounds.length} · 完整壁纸 ${scenes.filter(s=>s.role==='complete').length} · 官方动态 ${scenes.filter(s=>s.official).length} 套`;
   }
@@ -314,7 +319,7 @@ export function createWallpaperLibrary(host, {scenes, selectedId, settings={}, r
     if(!queuePrefsDirty)lastQueueId=next.lastQueueId??lastQueueId;
     if(queueDraft)queueDraft=queueDocs.get(queueDraft.id)??null;paintQueueList();paintAddBanner();
   }
-  function hide(restoreFocus=false){if(savedMenu.matches(':popover-open'))savedMenu.hidePopover();flushQueues();picker.hidden=true;$('.collections').hidden=$('.resource-panel').hidden=true;surfaceRevision++;flushInline();open=false;shell.hidden=true;clearPeek();onSurfaceChange(null);stopPreview();closeFull();closeEditor();$('.queue-view').hidden=true;if(restoreFocus&&focusBefore?.isConnected)focusBefore.focus({preventScroll:true});}
+  function hide(restoreFocus=false){if(savedMenu.matches(':popover-open'))savedMenu.hidePopover();flushQueues();picker.hidden=true;$('.collections').hidden=$('.resource-panel').hidden=true;surfaceRevision++;flushInline();open=false;shell.hidden=true;coverObserver?.disconnect();clearPeek();onSurfaceChange(null);stopPreview();closeFull();closeEditor();$('.queue-view').hidden=true;if(restoreFocus&&focusBefore?.isConnected)focusBefore.focus({preventScroll:true});}
   function close(){hide(true);onClose();}
   $('.dismiss').onclick=close;$('.tune').textContent='回到当前壁纸';$('.tune').onclick=()=>api.open({mode:'page'});
   function escape(){if(!open)return;if(savedMenu.matches(':popover-open')){savedMenu.hidePopover();savedSelect.focus();return;}for(const selector of ['.resource-panel','.collections'])if(!$(selector).hidden){$(selector).hidden=true;return;}if(!picker.hidden){picker.hidden=true;return;}if(!$('.editor').hidden)closeEditor();else if(!$('.queue-view').hidden)$('.queue-view').hidden=true;else if(!$('.full').hidden)closeFull();else close();}
@@ -327,7 +332,7 @@ export function createWallpaperLibrary(host, {scenes, selectedId, settings={}, r
     // closing a second level when our own keydown already dismissed a viewer.
     escapeKeyUp(){if(escapeHandled){escapeHandled=false;return;}escape();},
     hide, isOpen:()=>open,mode:()=>presentationMode,
-    resources(info,next){resourceInfo=info;if(next)for(const s of next){const old=all.get(s.id);if(old)Object.assign(old,s);}if(next&&open&&chosen){const previewScroll=detailScroll.scrollTop;setDetail(chosen);detailScroll.scrollTop=previewScroll;}renderResources();},
+    resources(info,next){resourceInfo=info;if(next)for(const s of next){const old=all.get(s.id);if(old)Object.assign(old,s);}if(next&&open)refreshCardCovers();if(next&&open&&chosen){const previewScroll=detailScroll.scrollTop;setDetail(chosen);detailScroll.scrollTop=previewScroll;}renderResources();},
     update(id,next){const previous=current;current=id;if(next){local=clone(next);syncQueueDocuments(next);}if(open&&presentationMode==='adjust'&&!inlineSaving&&!pendingEdit&&chosen?.id!==id)setDetail(all.get(id));if(open&&chosen){const {queue,item}=playingItem();inlineContext=chosen.id===current?{sceneId:current,queueId:queue?.id,itemId:item?.id}:null;if(!inlineSaving&&!pendingEdit&&chosen.id===current){drafts.delete(current);renderInline();}if(previous!==current&&chosen.id!==current)$('.inline-status').textContent='预览构图 · 点击应用后替换当前壁纸';}if(open&&!busy&&chosen){$('.apply').disabled=chosen.id===current&&!local.activePlaylistId;$('.apply').textContent=chosen.id===current&&!local.activePlaylistId?'正在使用':'应用这张壁纸';}if(queueDraft)for(const [i,row] of $$('.queue-item').entries())row.dataset.playing=String(local.activePlaylistId===queueDraft.id&&local.queueCursor===i);},
     destroy(){alive=false;hide();root.replaceChildren();}
   };

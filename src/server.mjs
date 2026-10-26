@@ -30,7 +30,7 @@ export async function startServer({ port = 0, stateDir = local, probeHost } = {}
   const assetParent=new Map(scenes.flatMap(s=>(s.clips??[]).map(c=>[c.id,s.id])));
   function catalog(){return scenes.map(scene=>{const {file,legacyFile,clips,...rest}=resources.decorate(scene),cached=playbackCache.describe(scene.id);return{...rest,sequence:cached?.sequence??null,posterAvailable:!resources.posterPath(scene.id).endsWith('welcome.svg')||scene.id==='welcome',...(clips?{clips:clips.map(({file,...c})=>({...c,...cached?.clips.find(x=>x.id===c.id)}))}:{})};});}
   function nativeCatalog(){return catalog().map(scene=>({...scene,sequence:scene.sequence?{...scene.sequence,video:nativeFileUrl(playbackCache.fileFor(scene.sequence.key))}:null,video:scene.kind==='dynamic'?nativeFileUrl(resources.fileFor(scene.clips?.[0]?.id??scene.id,scene.id)??mediaPath(scene.id)):null,clips:scene.clips?.map(clip=>({...clip,video:nativeFileUrl(resources.fileFor(clip.id,scene.id)??mediaPath(clip.id))})),poster:nativeFileUrl(resources.posterPath(scene.id)),thumb:nativeFileUrl(resources.posterPath(scene.id,true))}));}
-  try { settings = validateSettings(JSON.parse(await fs.readFile(path.join(stateDir, 'settings.json'), 'utf8'))); } catch {if(!catalog().find(s=>s.id===settings.sceneId)?.available)settings={...settings,sceneId:'welcome'};}
+  try { settings = validateSettings(JSON.parse(await fs.readFile(path.join(stateDir, 'settings.json'), 'utf8'))); } catch {if(!resources.decorate(sceneById(settings.sceneId)).available)settings={...settings,sceneId:'welcome'};}
   playbackCache.observe(settings);
   function references(id){const uses=c=>c?.sceneId===id||c?.backgroundId===id;return{current:uses(settings.wallpaper??{sceneId:settings.sceneId})||settings.playlists.some(q=>q.id===settings.activePlaylistId&&(q.backgroundId===id||q.items.some(i=>uses(i.wallpaper)))),queues:settings.playlists.filter(q=>q.backgroundId===id||q.items.some(i=>uses(i.wallpaper))).map(q=>q.name),saved:settings.savedWallpapers.filter(s=>uses(s.wallpaper)).map(s=>s.name)};}
   async function refreshHost() {
@@ -136,6 +136,13 @@ export async function startServer({ port = 0, stateDir = local, probeHost } = {}
         const file=match[2]==='video'?(resources.fileFor(sceneById(match[1])?.clips?.[0]?.id??match[1],assetParent.get(match[1])??match[1],variant??undefined)??(variant?null:mediaPath(match[1]))):resources.posterPath(match[1],match[2]==='thumb');
         if(!file)return json(res,404,{error:'所选画质尚未下载'});
         return await sendFile(req,res,file,mime[path.extname(file).toLowerCase()]);
+      }
+      // Startup only needs already-observed readiness, never a catalog/filesystem scan.
+      if (req.method === 'GET' && url.pathname === '/api/ready') {
+        return json(res, 200, { serviceVersion: VERSION, native: native ? {
+          applied:true,hostPid:native.hostPid,error:native.error??null,
+          playback:{firstFrameReady:!!native.playback?.firstFrameReady}
+        } : {applied:false} });
       }
       if (req.method === 'GET' && url.pathname === '/api/state') {
         return json(res, 200, { serviceVersion: VERSION, settings, scenes: catalog(),resources:resourceState(), host: publicHost(), native: native ? { applied: true, hostPid:native.hostPid, media: native.media, error: native.error ?? null,playback:native.playback??null } : { applied: false } });

@@ -47,12 +47,21 @@ test('CDP discovery uses the verified live port and rejects mismatched ownership
     assert.equal(hits,1);
   } finally {server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 });
-test('HTTP boundary, persistence, range serving and blocked native access', async () => {
+test('HTTP boundary, persistence, range serving and blocked native access', async (t) => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(),'ark-lab-test-'));
   const lab = await startServer({stateDir:dir,probeHost:async()=>({debuggerVerified:false,reason:'debug-not-enabled',running:true,package:{version:'test'}})});
   const headers = {'X-Lab-Token':lab.token,'Content-Type':'application/json',Origin:lab.origin};
   try {
     assert.equal((await fetch(`${lab.origin}/api/state`)).status,401);
+    assert.equal((await fetch(`${lab.origin}/api/ready`)).status,401);
+    const scan=t.mock.method(lab.resources,'decorate',()=>{throw Error('Readiness must not scan the wallpaper catalog');});
+    try{
+      for(let i=0;i<5;i++){
+        const response=await fetch(`${lab.origin}/api/ready`,{headers});assert.equal(response.status,200);
+        const ready=await response.json();assert.deepEqual(ready.native,{applied:false});assert.equal(ready.scenes,undefined);assert.ok(ready.serviceVersion);
+      }
+      assert.equal(scan.mock.callCount(),0);
+    }finally{scan.mock.restore();}
     assert.equal((await fetch(`${lab.origin}/media/yaoyue/video`)).status,401);
     assert.equal((await fetch(`${lab.origin}/api/settings`,{method:'POST',headers:{...headers,Origin:'https://untrusted.example'},body:'{}'})).status,403);
     assert.equal((await fetch(`${lab.origin}/api/settings`,{method:'POST',headers,body:JSON.stringify({...defaults,blur:99})})).status,400);

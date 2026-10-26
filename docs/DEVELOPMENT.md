@@ -1,6 +1,6 @@
 # 开发与构建
 
-源码要求 Node.js 22+；运行 `node --test tests/*.test.mjs`。没有 FFmpeg 或本地素材时，相应集成用例会跳过；其余核心用例照常运行。
+源码要求 Node.js 24.14+；运行 `node --test tests/*.test.mjs`。没有 FFmpeg 或本地素材时，相应集成用例会跳过；其余核心用例照常运行。
 
 浏览器验收脚本还需安装对应的 Playwright 等依赖，通过 `ARK_TEST_MODULES` 指向开发依赖目录。`native-*` 脚本面向已有本机接入环境，不属于普通用户安装步骤。服务生成的本地地址包含认证信息，不能公开。
 

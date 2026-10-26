@@ -48,3 +48,4 @@
 .env
 .env.*
 !/docs/RELEASE-v0.12.1.md
+!/docs/RELEASE-v0.12.2.md
