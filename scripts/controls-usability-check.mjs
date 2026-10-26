@@ -8,7 +8,7 @@ import {startServer} from '../src/server.mjs';
 const require=createRequire(path.join(process.env.ARK_TEST_MODULES,'package.json')),{chromium}=require('playwright');
 const dir=await fs.mkdtemp(path.join(ROOT,'.local','controls-test-'));
 const lab=await startServer({stateDir:dir,probeHost:async()=>({debuggerVerified:false})});
-const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const browser=await chromium.launch({headless:true,executablePath:process.env.ARK_CHROME??'C:/Program Files/Google/Chrome/Application/chrome.exe'});
 const page=await browser.newPage({viewport:{width:1550,height:1000}}),errors=[],checks=[];
 page.on('pageerror',e=>errors.push(e.message));
 const sample=scenes.find(s=>s.role==='complete');

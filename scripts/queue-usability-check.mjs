@@ -9,7 +9,7 @@ import {createMediaDeck} from '../src/compositor.mjs';
 import {startServer} from '../src/server.mjs';
 const require=createRequire(path.join(process.env.ARK_TEST_MODULES,'package.json')),{chromium}=require('playwright');
 const dir=await fs.mkdtemp(path.join(ROOT,'.local','queue-test-')),lab=await startServer({stateDir:dir,probeHost:async()=>({debuggerVerified:false})});
-const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const browser=await chromium.launch({headless:true,executablePath:process.env.ARK_CHROME??'C:/Program Files/Google/Chrome/Application/chrome.exe'});
 const page=await browser.newPage({viewport:{width:1550,height:1000}}),errors=[],checks=[];
 page.on('pageerror',e=>errors.push(e.message));
 const api=async(route,body)=>{const r=await fetch(`${lab.origin}/api/${route}`,{method:body?'POST':'GET',headers:{'X-Lab-Token':lab.token,'Content-Type':'application/json',Origin:lab.origin},...(body?{body:JSON.stringify(body)}:{})});const v=await r.json();assert.equal(r.ok,true,JSON.stringify(v));return v;};

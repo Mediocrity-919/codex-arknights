@@ -9,7 +9,7 @@ import {createWallpaperLibrary} from '../src/wallpaper-library.mjs';
 import {createWallpaperPlayer} from '../src/wallpaper-runtime.mjs';
 import {createMediaDeck} from '../src/compositor.mjs';
 const require=createRequire(path.join(process.env.ARK_TEST_MODULES,'package.json')),{chromium}=require('playwright');
-const dir=await fs.mkdtemp(path.join(ROOT,'.local','compatibility-')),lab=await startServer({stateDir:dir,probeHost:async()=>({debuggerVerified:false})}),browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'}),checks=[],errors=[];
+const dir=await fs.mkdtemp(path.join(ROOT,'.local','compatibility-')),lab=await startServer({stateDir:dir,probeHost:async()=>({debuggerVerified:false})}),browser=await chromium.launch({headless:true,executablePath:process.env.ARK_CHROME??'C:/Program Files/Google/Chrome/Application/chrome.exe'}),checks=[],errors=[];
 const html=`<style>body{background:#181818;color:white;margin:0}nav{position:absolute;inset:40px auto 0 0;width:50px}aside{position:absolute;left:50px;top:40px;width:200px}main{position:absolute;inset:40px 0 0 250px}</style><div id="root"><aside class="app-shell-left-panel"><nav data-app-navigation-rail><div><button data-sidebar-destination="images">图像</button></div></nav></aside><main data-app-shell-main-surface><div data-composer-body><textarea>fixture</textarea></div></main></div>`;
 const scene={...scenes.find(s=>s.id==='welcome'),poster:'app://fs/@fs/D:/fixture.svg',thumb:'app://fs/@fs/D:/fixture.svg'};
 const payload={settings:{...defaults,sceneId:'welcome',motion:false},poster:scene.poster,scenes:[scene]};

@@ -1,0 +1,93 @@
+name: Windows release acceptance
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/acceptance.yml
+      - scripts/*acceptance*.mjs
+      - scripts/acceptance-fixtures.mjs
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.14.0'
+      - name: Prepare independent test tools
+        shell: pwsh
+        run: |
+          $tools = Join-Path $env:RUNNER_TEMP 'ark-acceptance-tools'
+          npm install --prefix $tools --no-audit --no-fund playwright@1.62.1 ffmpeg-static@5.2.0
+          if ($LASTEXITCODE) { throw 'Test dependency installation failed' }
+          "ARK_TEST_MODULES=$tools/node_modules" | Out-File $env:GITHUB_ENV -Append
+          "ARK_FFMPEG=$tools/node_modules/ffmpeg-static/ffmpeg.exe" | Out-File $env:GITHUB_ENV -Append
+          $chrome = 'C:/Program Files/Google/Chrome/Application/chrome.exe'
+          if (-not (Test-Path -LiteralPath $chrome)) { throw 'Chrome is missing from this runner' }
+          "ARK_CHROME=$chrome" | Out-File $env:GITHUB_ENV -Append
+      - name: Download and verify public Windows package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path release,test-results,.local -Force | Out-Null
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $url = "https://github.com/Mediocrity-919/codex-arknights/releases/download/v$version"
+          $archive = Join-Path $PWD "release/codex-arknights-$version-windows-x64.zip"
+          Invoke-WebRequest "$url/checksums-$version.json" -OutFile release/checksums.json
+          Invoke-WebRequest "$url/codex-arknights-$version-windows-x64.zip" -OutFile $archive
+          $expected = Get-Content release/checksums.json -Raw | ConvertFrom-Json | Where-Object file -Like '*windows-x64.zip'
+          if ((Get-FileHash -LiteralPath $archive).Hash -ne $expected.sha256) { throw 'Public package checksum mismatch' }
+          $sandbox = Join-Path $env:RUNNER_TEMP "acceptance-sandbox-$version"
+          Expand-Archive -LiteralPath $archive -DestinationPath $sandbox
+          $manifest = Get-Content (Join-Path $sandbox release-manifest.json) -Raw | ConvertFrom-Json
+          foreach ($entry in $manifest.files) { if ((Get-FileHash -LiteralPath (Join-Path $sandbox $entry.path)).Hash -ne $entry.sha256) { throw "Package file mismatch: $($entry.path)" } }
+          # Overlay test scripts only; product src/public/launcher code remains the released package.
+          Copy-Item scripts/*check*.mjs,scripts/*acceptance*.mjs,scripts/acceptance-fixtures.mjs -Destination (Join-Path $sandbox scripts) -Force
+          New-Item -ItemType Directory -Path (Join-Path $sandbox test-results),(Join-Path $sandbox .local) -Force | Out-Null
+          "ARK_ACCEPTANCE_ROOT=$sandbox" | Out-File $env:GITHUB_ENV -Append
+          "ARK_ACCEPTANCE_OUTPUT=$PWD/test-results/cloud" | Out-File $env:GITHUB_ENV -Append
+          "ARK_ACCEPTANCE_ARCHIVE=$archive" | Out-File $env:GITHUB_ENV -Append
+      - name: Core and cache tests with FFmpeg
+        id: core
+        continue-on-error: true
+        shell: pwsh
+        run: node --test tests/*.test.mjs
+      - name: Public package install uninstall and reinstall
+        id: install
+        continue-on-error: true
+        shell: powershell
+        run: ./scripts/portable-install-check.ps1 -Archive $env:ARK_ACCEPTANCE_ARCHIVE
+      - name: Windows launcher shortcuts and window ordering
+        id: windows
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $env:ARK_ACCEPTANCE_OUTPUT = "$PWD/test-results/cloud-windows"
+          node scripts/cloud-acceptance.mjs windows
+      - name: Browser user-operation acceptance
+        id: ui
+        continue-on-error: true
+        shell: pwsh
+        run: node scripts/cloud-acceptance.mjs ui
+      - name: Actual image and video downloads on clean cloud network
+        id: downloads
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $env:ARK_ACCEPTANCE_OUTPUT = "$PWD/test-results/cloud-downloads"
+          node scripts/cloud-acceptance.mjs downloads
+      - name: Upload acceptance reports and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-acceptance-reports
+          path: test-results/
+          retention-days: 14
+      - name: Acceptance gate
+        if: always()
+        shell: pwsh
+        run: |
+          $outcomes = @('${{ steps.core.outcome }}','${{ steps.install.outcome }}','${{ steps.windows.outcome }}','${{ steps.ui.outcome }}','${{ steps.downloads.outcome }}')
+          if ($outcomes | Where-Object { $_ -ne 'success' }) { throw 'Acceptance has failed or incomplete steps; inspect the report artifact.' }

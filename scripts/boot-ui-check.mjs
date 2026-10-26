@@ -6,7 +6,7 @@ import {pathToFileURL} from 'node:url';
 const root=path.resolve(import.meta.dirname,'..');
 const require=createRequire(process.env.ARK_TEST_MODULES?path.join(process.env.ARK_TEST_MODULES,'package.json'):import.meta.url);
 const {chromium}=require('playwright');
-const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const browser=await chromium.launch({headless:true,executablePath:process.env.ARK_CHROME??'C:/Program Files/Google/Chrome/Application/chrome.exe'});
 const context=await browser.newContext({viewport:{width:1600,height:900}}),page=await context.newPage(),errors=[],remote=[];
 page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(/^https?:/.test(r.url()))remote.push(r.url());});
 await page.addInitScript(()=>{window.__messages=[];window.chrome.webview={postMessage:data=>window.__messages.push(data),addEventListener:()=>{}};});

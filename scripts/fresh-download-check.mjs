@@ -6,7 +6,7 @@ import {promisify} from 'node:util';
 import {ROOT,resourceCatalog} from '../src/catalog.mjs';
 import {createResourceManager,validateSource} from '../src/resource-manager.mjs';
 const exec=promisify(execFile),root=await fs.mkdtemp(path.join(ROOT,'.local','fresh-download-')),stateDir=path.join(root,'.local'),results=[];
-let runtime={};try{runtime=JSON.parse(await fs.readFile(path.join(ROOT,'.local/runtime.json'),'utf8'));}catch{}
+let runtime={ffmpeg:process.env.ARK_FFMPEG};try{runtime=JSON.parse(await fs.readFile(path.join(ROOT,'.local/runtime.json'),'utf8'));}catch{}
 await fs.mkdir(stateDir);if(runtime.ffmpeg)await fs.writeFile(path.join(stateDir,'runtime.json'),JSON.stringify({ffmpeg:runtime.ffmpeg}));
 const entries=Object.entries(resourceCatalog.files).filter(([,v])=>v.original?.url),selected=[];
 for(const host of ['media.prts.wiki','patchwiki.biligame.com'])selected.push(entries.filter(([,v])=>new URL(v.original.url).hostname===host).sort((a,b)=>a[1].original.bytes-b[1].original.bytes)[0][0]);
