@@ -47,3 +47,4 @@
 *.lnk
 .env
 .env.*
+!/docs/RELEASE-v0.12.1.md

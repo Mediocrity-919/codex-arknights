@@ -77,3 +77,18 @@ test('cache budget evicts least-recent idle files and finishes deferred cleanup 
     cache.observe({sceneId:'none'},{slots:[]});await until(()=>cache.publicState().bytes===0);
   }finally{await cache.close();await fs.rm(root,{recursive:true,force:true});}
 });
+
+
+test('cache refuses linked state ancestors and linked cache directories',async()=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'ark-cache-links-'));
+  const target=path.join(root,'target'),alias=path.join(root,'alias');await fs.mkdir(target);
+  const options={root,scenes:[],resources:{publicState:()=>({jobs:[]})},catalog:{files:{}},mediaPath:()=>null};
+  try{
+    await fs.symlink(target,alias,process.platform==='win32'?'junction':'dir');
+    await assert.rejects(createPlaybackCache({...options,stateDir:path.join(alias,'nested')}),/不能是链接/);
+    await fs.unlink(alias);
+    const stateDir=path.join(root,'state');await fs.mkdir(stateDir);
+    await fs.symlink(target,path.join(stateDir,'playback-cache-v2'),process.platform==='win32'?'junction':'dir');
+    await assert.rejects(createPlaybackCache({...options,stateDir}),/不能是链接/);
+  }finally{await fs.rm(root,{recursive:true,force:true});}
+});

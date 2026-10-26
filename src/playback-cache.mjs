@@ -13,9 +13,16 @@ const abortError=()=>new DOMException('缓存任务已取消','AbortError');
 
 // A serial, on-demand disk cache. No file-sized Buffers, Blob pool, or extra decoders.
 export async function createPlaybackCache({root,stateDir,scenes,resources,mediaPath,catalog}) {
-  const directory=path.join(stateDir,'playback-cache-v2'),indexPath=path.join(directory,'index.json');
+  // Windows 8.3 aliases can differ from realpath without being links. Inspect
+  // ancestors for actual links, then use the canonical directory for cache I/O.
+  await fs.mkdir(stateDir,{recursive:true});
+  for(let current=path.resolve(stateDir);;current=path.dirname(current)){
+    if((await fs.lstat(current)).isSymbolicLink())throw Error('播放缓存目录不能是链接');
+    if(path.dirname(current)===current)break;
+  }
+  const directory=path.join(await fs.realpath(stateDir),'playback-cache-v2'),indexPath=path.join(directory,'index.json');
   await fs.mkdir(directory,{recursive:true});
-  if((await fs.realpath(directory)).toLowerCase()!==path.resolve(directory).toLowerCase())throw Error('播放缓存目录不能是链接');
+  if((await fs.lstat(directory)).isSymbolicLink())throw Error('播放缓存目录不能是链接');
   let data={format:FORMAT,enabled:true,limitBytes:2*GiB,entries:{},edges:{},fingerprints:{}};
   try{const stored=JSON.parse(await fs.readFile(indexPath,'utf8'));if(stored.format===FORMAT)data={...data,...stored};}catch{}
   let revision=0,closed=false,pumping=false,activeJob=null,controller=null,writes=Promise.resolve(),saveTimer,wakeTimer;
