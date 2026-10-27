@@ -7,8 +7,8 @@ $installed=Get-Content -Encoding UTF8 -LiteralPath $record -Raw | ConvertFrom-Js
 if($installed.root -ne $installRoot){throw '安装清单与当前目录不匹配'}
 & (Join-Path $PSScriptRoot 'Stop-Theme.ps1') -Quiet
 if($installed.boundExisting){& (Join-Path $PSScriptRoot 'Bind-Codex-Launch.ps1') -Restore}
-$shell=New-Object -ComObject WScript.Shell
-foreach($linkPath in $installed.shortcuts){if(Test-Path -LiteralPath $linkPath){$link=$shell.CreateShortcut($linkPath);if($link.TargetPath -eq (Join-Path $installRoot 'dist\ArkBoot.exe')){Remove-Item -LiteralPath $linkPath}}}
+. (Join-Path $PSScriptRoot 'Windows-Shortcut.ps1')
+foreach($linkPath in $installed.shortcuts){if(Test-Path -LiteralPath $linkPath){$link=Get-ThemeShortcut -Path $linkPath;if($link.TargetPath -eq (Join-Path $installRoot 'dist\ArkBoot.exe')){Remove-Item -LiteralPath $linkPath}}}
 if($installed.registry){$key='HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ArkWorkspace';if((Get-ItemProperty -LiteralPath $key -ErrorAction SilentlyContinue).InstallLocation -eq $installRoot){Remove-Item -LiteralPath $key -Recurse}}
 if($RemoveUserData){
     # Delete only files enumerated in the resource catalog, never entire media roots.

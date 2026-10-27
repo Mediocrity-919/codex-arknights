@@ -7,7 +7,7 @@ $manifestPath = Join-Path $backupRoot 'binding.json'
 $desktop = [Environment]::GetFolderPath('Desktop')
 $programs = [Environment]::GetFolderPath('Programs')
 $pinned = Join-Path $env:APPDATA 'Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar'
-$shell = New-Object -ComObject WScript.Shell
+. (Join-Path $PSScriptRoot 'Windows-Shortcut.ps1')
 function Check-LinkPath([string]$path) {
     $full = [IO.Path]::GetFullPath($path)
     if([IO.Path]::GetExtension($full) -ne '.lnk') { throw 'Only shortcut files can be bound' }
@@ -20,7 +20,7 @@ if($Restore) {
     foreach($entry in $manifest.entries) {
         $destination = Check-LinkPath $entry.path
         if(Test-Path -LiteralPath $destination) {
-            $current = $shell.CreateShortcut($destination)
+            $current = (Get-ThemeShortcut -Path $destination)
             if($current.TargetPath -ne $launcher -or $current.Arguments -ne '--auto') { Write-Output "Skipped externally changed shortcut: $destination"; continue }
         }
         if($entry.backup) {
@@ -46,14 +46,14 @@ $candidates = @()
 foreach($folder in @($desktop,$programs,$pinned)) {
     if(Test-Path -LiteralPath $folder) {
         foreach($item in Get-ChildItem -LiteralPath $folder -Filter '*.lnk' -File -Recurse -ErrorAction SilentlyContinue) {
-            $link = $shell.CreateShortcut($item.FullName)
+            $link = (Get-ThemeShortcut -Path $item.FullName)
             if($link.TargetPath -eq $nativeExe -or $link.TargetPath -eq $launcher) { $candidates += $item.FullName }
         }
     }
 }
 $desktopLink = Join-Path $desktop 'Codex.lnk'
 if(Test-Path -LiteralPath $desktopLink) {
-    $current = $shell.CreateShortcut($desktopLink)
+    $current = (Get-ThemeShortcut -Path $desktopLink)
     if($current.TargetPath -ne $nativeExe -and $current.TargetPath -ne $launcher) { throw 'Desktop Codex.lnk belongs to a different application; preserved' }
 }
 $candidates += $desktopLink
@@ -71,10 +71,8 @@ foreach($candidate in ($candidates | Select-Object -Unique)) {
         # Save recovery information before changing the shortcut.
         @{launcher=$launcher;entries=$entries} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $manifestPath -Encoding UTF8
     }
-    $link = $shell.CreateShortcut($destination)
-    $link.TargetPath = $launcher; $link.Arguments = '--auto';$link.WorkingDirectory=$projectRoot
-    $link.IconLocation=$iconPath+',0';$link.Description='Codex';$link.WindowStyle=1;$link.Save()
-    $check = $shell.CreateShortcut($destination)
+    Save-ThemeShortcut -Path $destination -TargetPath $launcher -Arguments '--auto' -WorkingDirectory $projectRoot -Description 'Codex' -IconPath $iconPath
+    $check = (Get-ThemeShortcut -Path $destination)
     if($check.TargetPath -ne $launcher -or $check.Arguments -ne '--auto' -or $check.IconLocation -ne ($iconPath+',0')) { throw 'Shortcut verification failed' }
     Write-Output "Bound: $destination"
 }

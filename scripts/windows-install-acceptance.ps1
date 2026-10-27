@@ -16,8 +16,8 @@ if((Test-Path -LiteralPath $desktopLink) -or (Test-Path -LiteralPath $registry))
 $checks=@()
 try{
  & (Join-Path $package 'scripts\Install-Theme.ps1') -Destination $target | Out-Null
- $shell=New-Object -ComObject WScript.Shell
- $link=$shell.CreateShortcut($desktopLink)
+ . (Join-Path $package 'scripts\Windows-Shortcut.ps1')
+ $link=Get-ThemeShortcut -Path $desktopLink
  if($link.TargetPath -ne (Join-Path $target 'dist\ArkBoot.exe') -or $link.Arguments -ne '--auto' -or $link.Description -ne 'Codex'){
   @{expected=(Join-Path $target 'dist\ArkBoot.exe');actual=$link.TargetPath;arguments=$link.Arguments;description=$link.Description;fileExists=(Test-Path -LiteralPath $desktopLink);desktopFiles=@(Get-ChildItem -LiteralPath $desktop -Filter '*.lnk'|Select-Object -ExpandProperty Name)}|ConvertTo-Json|Write-Output
   throw 'Installed desktop shortcut is incorrect'
@@ -32,7 +32,7 @@ try{
  if(-not(Test-Path -LiteralPath (Join-Path $target '.local\test-personal.txt')) -or -not(Test-Path -LiteralPath (Join-Path $target 'my-notes.txt'))){throw 'Uninstall deleted personal files'}
  $checks+=@{name='Actual uninstall restores desktop and registry, retains personal and unrelated files';passed=$true}
  & (Join-Path $package 'scripts\Install-Theme.ps1') -Destination $target | Out-Null
- $link=$shell.CreateShortcut($desktopLink);$link.TargetPath=Join-Path $env:WINDIR 'System32\notepad.exe';$link.Save()
+ Save-ThemeShortcut -Path $desktopLink -TargetPath (Join-Path $env:WINDIR 'System32\notepad.exe') -Arguments '' -WorkingDirectory $target -Description 'Externally edited' -IconPath ''
  $modifiedHash=(Get-FileHash -LiteralPath $desktopLink).Hash
  & (Join-Path $target 'scripts\Uninstall-Theme.ps1') | Out-Null
  if((Get-FileHash -LiteralPath $desktopLink).Hash -ne $modifiedHash){throw 'Uninstall changed an externally edited shortcut'}
