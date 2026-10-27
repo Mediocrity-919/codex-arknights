@@ -18,14 +18,22 @@ for(const id of selected){const v=structuredClone(resourceCatalog.files[id]);v.o
 const manager=await createResourceManager({root,stateDir,catalog,scenes});
 try{
  for(const id of selected){
-  const begin=Date.now();assert.equal(manager.status(id).original,false);
+  const begin=Date.now(),retryErrors=[];let initialCoverError=null;assert.equal(manager.status(id).original,false);
   try{
-   const cover=await manager.ensurePoster(id);assert.notEqual(cover,path.join(root,'public/assets/welcome.svg'));assert.ok((await fs.stat(cover)).size>0);
-   const {id:jobId}=await manager.action('download',{sceneId:id,quality:'original'});
-   while(true){const job=manager.publicState().jobs.find(j=>j.id===jobId);if(job.status==='complete')break;if(['failed','cancelled'].includes(job.status))throw Error(job.error);if(Date.now()-begin>120000)throw Error('download test deadline');await new Promise(r=>setTimeout(r,100));}
+   // A transient cover failure must not prevent checking the user's Download
+   // and Retry actions. Static originals can also become their own preview.
+   try{await manager.ensurePoster(id);}catch(e){initialCoverError=e.cause?.code??e.message;}
+   let {id:jobId}=await manager.action('download',{sceneId:id,quality:'original'});
+   for(let attempt=0;attempt<3;attempt++){
+    let job;while(true){job=manager.publicState().jobs.find(j=>j.id===jobId);if(['complete','failed','cancelled'].includes(job.status))break;if(Date.now()-begin>180000)throw Error('download test deadline');await new Promise(r=>setTimeout(r,100));}
+    if(job.status==='complete')break;
+    retryErrors.push(job.error);if(attempt===2||job.status==='cancelled')throw Error(job.error);
+    await new Promise(r=>setTimeout(r,500));({id:jobId}=await manager.action('retry',{id:jobId}));
+   }
+   const cover=manager.posterPath(id);assert.notEqual(cover,path.join(root,'public/assets/welcome.svg'));assert.ok((await fs.stat(cover)).size>0);
    const scene=manager.decorate(scenes.find(s=>s.id===id));assert.equal(scene.available,true);assert.equal(scene.resource.original,true);
    const file=manager.fileFor(id);if(runtime.ffmpeg)await exec(runtime.ffmpeg,['-v','error','-xerror','-i',file,'-frames:v','1','-f','null','-'],{windowsHide:true,timeout:20000});
-   results.push({id,host:new URL(catalog.files[id].original.url).hostname,passed:true,bytes:(await fs.stat(file)).size,seconds:Math.round((Date.now()-begin)/1000)});
+   results.push({id,host:new URL(catalog.files[id].original.url).hostname,passed:true,bytes:(await fs.stat(file)).size,seconds:Math.round((Date.now()-begin)/1000),initialCoverError,retries:retryErrors.length,retryErrors});
   }catch(e){results.push({id,passed:false,error:e.message,cause:e.cause?.code??e.cause?.message});
    const variants=catalog.files[id],source=variants?.original?.url;
    if(source){try{const response=await fetch(source,{method:'HEAD',signal:AbortSignal.timeout(12000)});results.at(-1).diagnosticHeadStatus=response.status;await response.body?.cancel();}catch(d){results.at(-1).diagnosticHeadError=d.cause?.code??d.cause?.message??d.message;}}
