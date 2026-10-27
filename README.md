@@ -6,7 +6,7 @@
 
 当前版本：**0.12.5 · Windows 桌面测试版**。
 
-[下载测试版](https://github.com/Mediocrity-919/codex-arknights/releases/tag/v0.12.5) · [反馈问题](https://github.com/Mediocrity-919/codex-arknights/issues) · [详细使用说明](docs/BETA-GUIDE.md)
+[下载测试版](https://github.com/Mediocrity-919/codex-arknights/releases/tag/v0.12.5) · [反馈问题](https://github.com/Mediocrity-919/codex-arknights/issues) · [详细使用说明](docs/BETA-GUIDE.md) · [Windows 验收报告](docs/ACCEPTANCE-v0.12.5.md)
 
 ## 功能
 
