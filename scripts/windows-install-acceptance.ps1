@@ -5,7 +5,12 @@ $package=[IO.Path]::GetFullPath($PackageRoot)
 $reportRoot=$package
 if($env:ARK_ACCEPTANCE_ARCHIVE){$package=Join-Path $env:RUNNER_TEMP ('acceptance-sandbox-pristine-'+[guid]::NewGuid().ToString('N'));Expand-Archive -LiteralPath $env:ARK_ACCEPTANCE_ARCHIVE -DestinationPath $package}
 $target=Join-Path $env:RUNNER_TEMP ('acceptance-sandbox-installed '+[guid]::NewGuid().ToString('N'))
-$desktopLink=Join-Path ([Environment]::GetFolderPath('Desktop')) 'Codex 壁纸版.lnk'
+$desktop=[Environment]::GetFolderPath('Desktop')
+# Hosted runners do not start Explorer, so the standard Desktop shell folder
+# may not exist yet. Prepare the ordinary desktop prerequisite for COM links.
+if(-not $desktop){throw 'Runner has no Desktop shell folder'}
+New-Item -ItemType Directory -Path $desktop -Force | Out-Null
+$desktopLink=Join-Path $desktop 'Codex 壁纸版.lnk'
 $registry='HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ArkWorkspace'
 if((Test-Path -LiteralPath $desktopLink) -or (Test-Path -LiteralPath $registry)){throw 'Runner contains an existing install; refusing to modify it'}
 $checks=@()
