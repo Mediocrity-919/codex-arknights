@@ -11,7 +11,7 @@ await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromiu
 try{
  await page.goto('http://127.0.0.1:'+server.address().port);await page.waitForFunction(()=>window.ready&&window.requests.length>=3);
  await page.waitForFunction(()=>[...document.querySelector('#fixture').shadowRoot.querySelectorAll('.card img')].filter(x=>x.getAttribute('src')==='/cover.svg').length>=3);
- const first=await page.evaluate(()=>({requests:requests.length,unique:new Set(requests).size,disabled:document.querySelector('#fixture').shadowRoot.querySelector('.apply').disabled}));assert.equal(first.requests,first.unique);assert.ok(first.requests<36);assert.equal(first.disabled,true);
+ const first=await page.evaluate(()=>({requests:requests.length,unique:new Set(requests).size,disabled:document.querySelector('#fixture').shadowRoot.querySelector('.apply').disabled}));assert.equal(first.requests,first.unique);assert.ok(first.requests<36);assert.equal(first.disabled,true);await page.evaluate(()=>api.update('wall-0',{sceneId:'wall-0',playlists:[],savedWallpapers:[]}));assert.equal(await page.evaluate(()=>document.querySelector('#fixture').shadowRoot.querySelector('.apply').disabled),true);
  await page.evaluate(()=>{document.querySelector('#fixture').shadowRoot.querySelector('.scroll').scrollTop=1200;});await page.waitForFunction(n=>requests.length>n,first.requests);
  assert.deepEqual(errors,[]);console.log(JSON.stringify({visibleCardsLoad:true,offscreenDeferred:true,cardsRefresh:true,undownloadedApplyDisabled:true,errors}));
 }finally{await browser.close();server.closeAllConnections();await new Promise(r=>server.close(r));}

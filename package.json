@@ -1,6 +1,6 @@
 {
   "name": "codex-arknights",
-  "version": "0.12.3",
+  "version": "0.12.4",
   "private": true,
   "type": "module",
   "description": "Windows desktop wallpaper companion beta for Codex / ChatGPT.",

@@ -41,7 +41,9 @@ if(-not $SkipShortcuts){
         $linkPath=Join-Path ([Environment]::GetFolderPath('Desktop')) 'Codex 壁纸版.lnk'
         $shell=New-Object -ComObject WScript.Shell
         if(Test-Path -LiteralPath $linkPath){$old=$shell.CreateShortcut($linkPath);if($old.TargetPath -ne (Join-Path $installRoot 'dist\ArkBoot.exe')){throw '同名快捷方式属于其他程序，已保留'}}
-        $link=$shell.CreateShortcut($linkPath);$link.TargetPath=Join-Path $installRoot 'dist\ArkBoot.exe';$link.Arguments='--auto';$link.WorkingDirectory=$installRoot;$link.Description='Codex';$link.IconLocation=(Join-Path $installRoot 'dist\ChatGPT-Launcher.ico')+',0';$link.Save();$installed.shortcuts=@(($installed.shortcuts+@($linkPath))|Select-Object -Unique)
+        . (Join-Path $installRoot 'scripts\Windows-Shortcut.ps1')
+        Save-ThemeShortcut -Path $linkPath -TargetPath (Join-Path $installRoot 'dist\ArkBoot.exe') -Arguments '--auto' -WorkingDirectory $installRoot -Description 'Codex' -IconPath (Join-Path $installRoot 'dist\ChatGPT-Launcher.ico')
+        $installed.shortcuts=@(($installed.shortcuts+@($linkPath))|Select-Object -Unique)
     }
 }
 if(-not $SkipRegistry){

@@ -4,9 +4,9 @@
 
 **本项目免费，以个人兴趣、学习和社区分享为目的，不以盈利为目的。** 本项目与 OpenAI、鹰角网络及其关联公司没有官方合作或隶属关系，也不是官方插件市场中的主题扩展。
 
-当前版本：**0.12.3 · Windows 桌面测试版**。
+当前版本：**0.12.4 · Windows 桌面测试版**。
 
-[下载测试版](https://github.com/Mediocrity-919/codex-arknights/releases/tag/v0.12.3) · [反馈问题](https://github.com/Mediocrity-919/codex-arknights/issues) · [详细使用说明](docs/BETA-GUIDE.md)
+[下载测试版](https://github.com/Mediocrity-919/codex-arknights/releases/tag/v0.12.4) · [反馈问题](https://github.com/Mediocrity-919/codex-arknights/issues) · [详细使用说明](docs/BETA-GUIDE.md)
 
 ## 功能
 
@@ -35,7 +35,7 @@
 
 ## 下载与运行
 
-1. 在 [Releases](https://github.com/Mediocrity-919/codex-arknights/releases) 下载 **`codex-arknights-0.12.3-windows-x64.zip`**。GitHub 自动生成的 Source code 是源码，不是可直接运行的完整包。
+1. 在 [Releases](https://github.com/Mediocrity-919/codex-arknights/releases) 下载 **`codex-arknights-0.12.4-windows-x64.zip`**。GitHub 自动生成的 Source code 是源码，不是可直接运行的完整包。
 2. 解压到独立、可写目录，例如 `D:\Apps\CodexArknights`；请完整解压，不要直接在压缩包内打开。
 3. 首次使用前保存工作并正常退出客户端，然后双击 **`ARK启动Codex.cmd`**，或运行 **`dist/ArkBoot.exe`**。
 4. 进入客户端后打开左侧壁纸入口，在壁纸中心选择内容并下载、应用。
@@ -60,9 +60,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Install-Theme.
 
 ## 素材、画质与播放队列
 
-邀月提供独立的 4K、60 帧源视频下载：在动态背景中选择邀月，点击“下载 4K 视频”。普通下载不需要 Python 或超分环境。
+最初四段视频原片分别按需下载：邀月、纯烬艾雅法拉、黍 · 岁时、黍 · 闲庭。在壁纸详情直接点击“下载原片”，即可获取现成视频，不需要 Python 或超分环境。源分辨率和帧率单独显示。
 
-在其他壁纸详情点击“下载 / 画质管理”，选择原片或可选本机生成的 4K。4K 是可选的本机派生处理，并非官方原生 4K；已有本地 4K 可直接使用。工具可在资源中心或 `配置视频工具.cmd` 中配置。获取依据见 [背景资源获取](背景资源获取.md)，AI 环境见 [资源工具说明](tools/resource-fetcher/README.md)。
+其他官方动态皮肤提供独立的“下载原片”和“本机生成 4K”按钮。素材管理中可查看进度、重试或删除。4K 是可选的本机派生处理，并非官方原生 4K；已有本地 4K 可直接使用。工具可在资源中心或 `配置视频工具.cmd` 中配置。获取依据见 [背景资源获取](背景资源获取.md)，AI 环境见 [资源工具说明](tools/resource-fetcher/README.md)。
 
 “已存组合”保存背景和干员的构图，方便手动重用；“播放队列”用于轮播。同一队列的静态干员组合共用背景及背景构图，每个干员的位置独立，完整壁纸和动态视频独立播放。全局透明度、遮罩等设置不属于组合。具体操作见 [使用说明](docs/BETA-GUIDE.md) 和 [队列说明](docs/QUEUE-V010.md)。
 

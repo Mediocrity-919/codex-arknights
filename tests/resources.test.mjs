@@ -86,3 +86,8 @@ test('published snapshot retains profession and rarity for fresh official skin b
  assert.ok(resourceCatalog.officialRecords.length>250);
  for(const row of resourceCatalog.officialRecords){assert.ok(professions.includes(row.profession),'Missing profession for '+row.cid);assert.ok(row.rarity>=1&&row.rarity<=6,'Missing rarity for '+row.cid);}
 });
+
+
+test('all four supplied video originals have independent public sources and covers',()=>{
+ for(const id of ['yaoyue','eyja','shu-1','shu-2']){const original=resourceCatalog.files[id].original;assert.equal(original.localOnly,false);validateSource(original.url);validateSource(resourceCatalog.items[id].cover);assert.equal(original.sha256.length,64);assert.ok(original.width>=3000&&original.height===2160);assert.ok(original.fps>=60);}
+});
