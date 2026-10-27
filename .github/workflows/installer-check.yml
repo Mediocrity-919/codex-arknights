@@ -1,0 +1,33 @@
+name: Windows installer integration
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/installer-check.yml
+      - scripts/windows-install-acceptance.ps1
+permissions:
+  contents: read
+jobs:
+  installer:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify published package
+        shell: pwsh
+        run: |
+          $version=(Get-Content package.json -Raw|ConvertFrom-Json).version
+          $url="https://github.com/Mediocrity-919/codex-arknights/releases/download/v$version"
+          $archive=Join-Path $env:RUNNER_TEMP 'installer-package.zip'
+          Invoke-WebRequest "$url/codex-arknights-$version-windows-x64.zip" -OutFile $archive
+          Invoke-WebRequest "$url/checksums-$version.json" -OutFile "$archive.json"
+          $expected=Get-Content "$archive.json" -Raw|ConvertFrom-Json|Where-Object file -Like '*windows-x64.zip'
+          if((Get-FileHash -LiteralPath $archive).Hash -ne $expected.sha256){throw 'Package digest mismatch'}
+          $sandbox=Join-Path $env:RUNNER_TEMP 'acceptance-sandbox-installer'
+          Expand-Archive -LiteralPath $archive -DestinationPath $sandbox
+          New-Item -ItemType Directory -Path (Join-Path $sandbox test-results) -Force|Out-Null
+          "ARK_ACCEPTANCE_ROOT=$sandbox"|Out-File $env:GITHUB_ENV -Append
+          "ARK_ACCEPTANCE_ARCHIVE=$archive"|Out-File $env:GITHUB_ENV -Append
+      - name: Actual install shortcut registry and uninstall
+        shell: powershell
+        run: ./scripts/windows-install-acceptance.ps1 -PackageRoot $env:ARK_ACCEPTANCE_ROOT

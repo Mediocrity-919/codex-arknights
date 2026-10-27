@@ -18,7 +18,10 @@ try{
  & (Join-Path $package 'scripts\Install-Theme.ps1') -Destination $target | Out-Null
  $shell=New-Object -ComObject WScript.Shell
  $link=$shell.CreateShortcut($desktopLink)
- if($link.TargetPath -ne (Join-Path $target 'dist\ArkBoot.exe') -or $link.Arguments -ne '--auto' -or $link.Description -ne 'Codex'){throw 'Installed desktop shortcut is incorrect'}
+ if($link.TargetPath -ne (Join-Path $target 'dist\ArkBoot.exe') -or $link.Arguments -ne '--auto' -or $link.Description -ne 'Codex'){
+  @{expected=(Join-Path $target 'dist\ArkBoot.exe');actual=$link.TargetPath;arguments=$link.Arguments;description=$link.Description;fileExists=(Test-Path -LiteralPath $desktopLink);desktopFiles=@(Get-ChildItem -LiteralPath $desktop -Filter '*.lnk'|Select-Object -ExpandProperty Name)}|ConvertTo-Json|Write-Output
+  throw 'Installed desktop shortcut is incorrect'
+ }
  if((Get-ItemProperty -LiteralPath $registry).InstallLocation -ne $target){throw 'Installed registry entry is incorrect'}
  $checks+=@{name='Actual desktop shortcut and HKCU uninstall registration';passed=$true}
  New-Item -ItemType Directory -Path (Join-Path $target '.local') -Force|Out-Null
