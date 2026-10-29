@@ -18,26 +18,29 @@ for (const scene of dynamic) {
   Object.assign(scene, { kind:'dynamic', category:scene.id==='yaoyue'?'background':'operator', operator:scene.id==='yaoyue'?'邀月':scene.id==='eyja'?'纯烬艾雅法拉':'黍', profession:scene.id==='yaoyue'?'':scene.id==='eyja'?'医疗':'重装', rarity:scene.id==='yaoyue'?0:6, variant:scene.name, fit:'cover', legacyFile:scene.file });
   scene.file = path.join('动态壁纸', scene.category==='background'?'背景':'干员', ...(scene.category==='background'?[]:[`${String(professions.indexOf(scene.profession)+1).padStart(2,'0')}_${scene.profession}`]),scene.operator,scene.file);
 }
+const hash=value=>createHash('sha256').update(value.replaceAll('\\','/')).digest('hex').slice(0,16);
+export const artIdFor=record=>`art-${hash(record)}`;
+export const clipIdFor=row=>`clip-${row.cid}-${hash(row.original_path)}`;
 // Only paths in the supplied, local collection manifest are admitted.
 let records=[];
 try { records=JSON.parse(readFileSync(path.join(ART_ROOT,'资料与清单','原图来源与尺寸.json'),'utf8').replace(/^\uFEFF/,'')).records; }
 catch(error) { if(error.code!=='ENOENT')throw error; records=resourceCatalog.artRecords; }
-const art = records.map(record=>{
+function artScene(record){
   const full=path.resolve(ART_ROOT,record.path);
   if (!full.startsWith(ART_ROOT+path.sep) || !professions.includes(record.profession) || path.extname(full).toLowerCase()!=='.png') throw new Error('立绘清单路径或职业无效');
   const variant=record.label.replace(/^\d+_/,'').replace(/^时装\d+_/,'').replace(/^立绘_.+_skin(\w+)$/,'时装补充立绘 $1');
-  return {id:`art-${createHash('sha256').update(record.path.replaceAll('\\','/')).digest('hex').slice(0,16)}`,kind:'static',category:'operator',operator:record.operator,profession:record.profession,rarity:record.rarity,variant,name:`${record.operator} · ${variant}`,subtitle:variant,tag:'静态立绘',file:path.relative(ROOT,full),width:record.width,height:record.height,bytes:record.size,focusX:50,focusY:50,shade:.2,fit:'contain',source:'PRTS',variantKey:record.variant};
-});
+  return {id:artIdFor(record.path),kind:'static',category:'operator',operator:record.operator,profession:record.profession,rarity:record.rarity,variant,name:`${record.operator} · ${variant}`,subtitle:variant,tag:'静态立绘',file:path.relative(ROOT,full),width:record.width,height:record.height,bytes:record.size,focusX:50,focusY:50,shade:.2,fit:'contain',source:'PRTS',variantKey:record.variant,...(record.addedAt?{addedAt:record.addedAt}:{})};
+}
+const art = records.map(artScene);
 const readManifest=(folder,file)=>{try{return JSON.parse(readFileSync(path.join(ROOT,folder,'资料与清单',file),'utf8').replace(/^\uFEFF/,''));}catch(e){if(e.code==='ENOENT')return file==='4K视频处理结果.json'?resourceCatalog.upscaledRecords:file==='最终文件与校验.json'?resourceCatalog.officialRecords:folder==='明日方舟_首页背景与场景'?resourceCatalog.backgroundRecords:folder==='明日方舟_活动与启动器背景'?resourceCatalog.completeRecords:[];throw e;}};
 const safeFile=(folder,relative)=>{const base=path.join(ROOT,folder),full=path.resolve(base,relative);if(!full.startsWith(base+path.sep))throw Error('素材路径越界');return path.relative(ROOT,full);};
-const hash=value=>createHash('sha256').update(value.replaceAll('\\','/')).digest('hex').slice(0,16);
 let bounds=resourceCatalog.bounds??{};try{bounds=JSON.parse(readFileSync(path.join(ROOT,'.local','art-bounds.json'),'utf8'));}catch{}
 for(const scene of art)scene.bounds=bounds[scene.id]??null;
 const backgrounds=[];
 for(const [folder,role,prefix] of [['明日方舟_首页背景与场景','scene','bg'],['明日方舟_活动与启动器背景','complete','wall']]){
   for(const row of readManifest(folder,'图片来源与校验.json'))backgrounds.push({id:`${prefix}-${hash(row.path)}`,name:row.label||row.name,operator:row.label||row.name,variant:role==='scene'?'首页场景':'活动与启动器',kind:'static',category:'background',role,file:safeFile(folder,row.path),width:row.width,height:row.height,bytes:row.bytes,fit:'cover',focusX:50,focusY:50,rarity:0,profession:'',source:'PRTS'});
 }
-const officialFolder='明日方舟_官方动态皮肤全集', officialAssets=[], bundles=new Map();
+const officialFolder='明日方舟_官方动态皮肤全集';
 const upscaledRoot=path.join(ROOT,officialFolder,'4K超分');
 const upscaledByOriginal=new Map(readManifest(officialFolder,'4K视频处理结果.json').map(row=>[row.original_path.replaceAll('\\','/'),row]));
 function officialMedia(row){
@@ -52,27 +55,46 @@ function officialMedia(row){
   if(!stat.isFile()||stat.size!==processed.output_bytes||processed.output_width!==3840||processed.output_height!==2160)return original;
   return{file,width:processed.output_width,height:processed.output_height,fps:processed.output_fps,duration:processed.output_duration,bytes:processed.output_bytes,rendition:'4k-upscale'};
 }
-for(const row of readManifest(officialFolder,'最终文件与校验.json')){
-  const id=`clip-${row.cid}-${hash(row.original_path)}`,media=officialMedia(row);
-  const clip={id,name:row.action,...media};officialAssets.push(clip);
-  if(!bundles.has(row.cid))bundles.set(row.cid,{id:`official-${row.cid}`,cid:row.cid,name:`${row.char} · ${row.skin}`,operator:row.char,variant:row.skin,collection:row.type===1?'时装':'晋升立绘',kind:'dynamic',category:'operator',official:true,profession:row.profession,rarity:row.rarity,fit:'contain',focusX:50,focusY:50,...media,clips:[],bytes:0,duration:0});
-  const bundle=bundles.get(row.cid);bundle.clips.push({...clip,order:row.original_path.split(/[\\/]/).at(-1)});bundle.bytes+=clip.bytes;bundle.duration+=clip.duration;
+function buildOfficial(rows){
+  const bundles=new Map(),clips=[];
+  for(const row of rows){
+    const id=clipIdFor(row),media=officialMedia(row);
+    const clip={id,name:row.action,...media};clips.push(clip);
+    if(!bundles.has(row.cid))bundles.set(row.cid,{id:`official-${row.cid}`,cid:row.cid,name:`${row.char} · ${row.skin}`,operator:row.char,variant:row.skin,collection:row.type===1?'时装':'晋升立绘',kind:'dynamic',category:'operator',official:true,profession:row.profession,rarity:row.rarity,fit:'contain',focusX:50,focusY:50,...media,clips:[],bytes:0,duration:0,...(row.addedAt?{addedAt:row.addedAt}:{})});
+    const bundle=bundles.get(row.cid);bundle.clips.push({...clip,order:row.original_path.split(/[\\/]/).at(-1)});bundle.bytes+=clip.bytes;bundle.duration+=clip.duration;
+  }
+  for(const bundle of bundles.values()){
+    // Only three-action official skins share this initial framing. Explicit
+    // saved compositions still take precedence over these catalog defaults.
+    if(bundle.clips.length===3){bundle.defaultView={scale:1.8,x:30,y:50};bundle.defaultShade=.2;}
+    bundle.clips.sort((a,b)=>a.order.localeCompare(b.order,'zh-CN',{numeric:true}));bundle.file=bundle.clips[0].file;
+    for(const key of ['width','height','fps'])bundle[key]=bundle.clips[0][key];
+    bundle.rendition=bundle.clips.every(clip=>clip.rendition==='4k-upscale')?'4k-upscale':bundle.clips.every(clip=>clip.rendition==='original')?'original':'mixed';
+    bundle.clips=bundle.clips.map(({file,order,...clip})=>clip);
+  }
+  return {bundles:[...bundles.values()],clips};
 }
-for(const bundle of bundles.values()){
-  // Only three-action official skins share this initial framing. Explicit
-  // saved compositions still take precedence over these catalog defaults.
-  if(bundle.clips.length===3){bundle.defaultView={scale:1.8,x:30,y:50};bundle.defaultShade=.2;}
-  bundle.clips.sort((a,b)=>a.order.localeCompare(b.order,'zh-CN',{numeric:true}));bundle.file=bundle.clips[0].file;
-  for(const key of ['width','height','fps'])bundle[key]=bundle.clips[0][key];
-  bundle.rendition=bundle.clips.every(clip=>clip.rendition==='4k-upscale')?'4k-upscale':bundle.clips.every(clip=>clip.rendition==='original')?'original':'mixed';
-  bundle.clips=bundle.clips.map(({file,order,...clip})=>clip);
-}
+const {bundles:officialBundles,clips:officialAssets}=buildOfficial(readManifest(officialFolder,'最终文件与校验.json'));
 const welcome={id:'welcome',name:'初始工作空间',operator:'初始工作空间',variant:'内置背景',kind:'static',category:'background',role:'builtin',file:'public/assets/welcome.svg',width:1920,height:1080,rarity:0,profession:'',fit:'cover',focusX:50,focusY:50};
-export const scenes = [...dynamic,...art,...backgrounds,...bundles.values(),welcome];
+export const scenes = [...dynamic,...art,...backgrounds,...officialBundles,welcome];
 const byId=new Map(scenes.map(scene=>[scene.id,scene]));
 const assets=new Map([...scenes,...officialAssets].map(scene=>[scene.id,scene]));
 export const sceneById = (id) => byId.get(id);
 export const assetById = id=>assets.get(id);
+// Adds catalog entries discovered after this snapshot. Existing ids are never
+// replaced, so a bad update can only add items, not alter downloaded media.
+export function extendCatalog(delta={}){
+  for(const [key,value] of Object.entries(delta.files??{}))resourceCatalog.files[key]??=value;
+  for(const [key,value] of Object.entries(delta.items??{}))resourceCatalog.items[key]??=value;
+  const added=[];
+  for(const record of delta.artRecords??[]){if(byId.has(artIdFor(record.path)))continue;try{const scene=artScene(record);scene.bounds=null;added.push(scene);}catch{}}
+  const {bundles,clips}=buildOfficial((delta.officialRecords??[]).filter(row=>!byId.has(`official-${row.cid}`)));
+  added.push(...bundles);
+  scenes.splice(scenes.indexOf(welcome),0,...added);
+  for(const scene of added){byId.set(scene.id,scene);assets.set(scene.id,scene);}
+  for(const clip of clips)assets.set(clip.id,clip);
+  return added.map(scene=>scene.id);
+}
 export const mediaPath = (id, poster = false) => {
   const scene = assetById(id);
   if (!scene) throw new Error('未知场景');

@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "description": "Pinned downloads for the optional one-click video tools. Each archive is verified by size and SHA-256; mirrors must serve identical bytes.",
+  "ffmpeg": {
+    "version": "9.0.2",
+    "license": "GPL-3.0 (FFmpeg essentials build by Gyan Doshi)",
+    "bytes": 114768076,
+    "sha256": "60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba",
+    "urls": [
+      "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.2-essentials_build.zip",
+      "https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-essentials_build.zip"
+    ],
+    "members": [
+      "ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe",
+      "ffmpeg-9.0.2-essentials_build/bin/ffprobe.exe",
+      "ffmpeg-9.0.2-essentials_build/LICENSE"
+    ],
+    "exe": "ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe"
+  },
+  "python": {
+    "version": "3.12.10",
+    "bytes": 11133606,
+    "sha256": "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3",
+    "urls": [
+      "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip",
+      "https://registry.npmmirror.com/-/binary/python/3.12.10/python-3.12.10-embed-amd64.zip"
+    ],
+    "pth": "python312._pth"
+  },
+  "pip": {
+    "file": "pip-26.2.2-py3-none-any.whl",
+    "bytes": 1819850,
+    "sha256": "fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70",
+    "urls": [
+      "https://files.pythonhosted.org/packages/3f/06/3e4420302363fbb71be3c7f35ce042f54bfca330e3e66b3a2e3c4cca579f/pip-26.2.2-py3-none-any.whl",
+      "https://mirrors.aliyun.com/pypi/packages/3f/06/3e4420302363fbb71be3c7f35ce042f54bfca330e3e66b3a2e3c4cca579f/pip-26.2.2-py3-none-any.whl"
+    ]
+  },
+  "torch": {
+    "version": "2.11.0",
+    "variants": {
+      "cu128": {
+        "minDriver": 570,
+        "file": "torch-2.11.0+cu128-cp312-cp312-win_amd64.whl",
+        "bytes": 2753189216,
+        "sha256": "7c78215c3af4f62e63f2b2e360f1722fc719b0853c7ac22666483d9810613a4c",
+        "urls": [
+          "https://download.pytorch.org/whl/cu128/torch-2.11.0%2Bcu128-cp312-cp312-win_amd64.whl",
+          "https://mirrors.aliyun.com/pytorch-wheels/cu128/torch-2.11.0+cu128-cp312-cp312-win_amd64.whl"
+        ]
+      },
+      "cu126": {
+        "minDriver": 528,
+        "file": "torch-2.11.0+cu126-cp312-cp312-win_amd64.whl",
+        "bytes": 2596453924,
+        "sha256": "1b7d728ddcf84b12f64ca10ec5f6ce91dd9edcc5e62ed5f0a7260ca00f029e8b",
+        "urls": [
+          "https://download.pytorch.org/whl/cu126/torch-2.11.0%2Bcu126-cp312-cp312-win_amd64.whl",
+          "https://mirrors.aliyun.com/pytorch-wheels/cu126/torch-2.11.0+cu126-cp312-cp312-win_amd64.whl"
+        ]
+      }
+    },
+    "requirements": ["numpy==2.5.1"],
+    "indexes": ["https://pypi.org/simple", "https://pypi.tuna.tsinghua.edu.cn/simple"]
+  },
+  "model": {
+    "license": "BSD-3-Clause (Real-ESRGAN, Xintao Wang)",
+    "bytes": 45474481,
+    "sha256": "abc02804e17982a3be33675e4d471e91ea374e65b70167abc09e31acb412802d",
+    "urls": [
+      "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesrgan-ncnn-vulkan-20220424-windows.zip"
+    ],
+    "files": {
+      "models/realesr-animevideov3-x2.bin": "548a36f9c3f4ab8da56cd3b13badf23968bee207b396dad14d04b830e5f2ab2d",
+      "models/realesr-animevideov3-x2.param": "b88ff4f00ebf019a7fdac17fdd45a7fd3665d37509efc5baf2e4da2e24420a04"
+    }
+  },
+  "freeSpace": {"ffmpeg": 536870912, "full": 9663676416}
+}

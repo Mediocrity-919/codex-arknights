@@ -5,7 +5,9 @@ import crypto from 'node:crypto';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { ROOT, scenes, sceneById, assetById, defaults, validateSettings, mediaPath, nativeFileUrl,resourceCatalog } from './catalog.mjs';
+import { ROOT, scenes, sceneById, assetById, defaults, validateSettings, mediaPath, nativeFileUrl,resourceCatalog,extendCatalog } from './catalog.mjs';
+import {createCatalogUpdater,knownFromScenes} from './catalog-update.mjs';
+import {createToolInstaller} from './tool-installer.mjs';
 import {createResourceManager} from './resource-manager.mjs';
 import {createPlaybackCache} from './playback-cache.mjs';
 import { parseRange } from './range.mjs';
@@ -16,17 +18,23 @@ const statics = new Map([['/', 'index.html'], ['/app.js', 'app.js'], ['/style.cs
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.jpg': 'image/jpeg', '.png':'image/png', '.webp':'image/webp', '.mp4': 'video/mp4','.svg':'image/svg+xml','.img':'image/png' };
 const VERSION=JSON.parse(await fs.readFile(path.join(ROOT,'package.json'),'utf8')).version;
 
-export async function startServer({ port = 0, stateDir = local, probeHost } = {}) {
+export async function startServer({ port = 0, stateDir = local, probeHost, updateFetcher, autoUpdate = false, toolOptions = {} } = {}) {
   await fs.mkdir(stateDir, { recursive: true });
   const token = crypto.randomBytes(32).toString('hex');
   let origin, settings = { ...defaults }, native = null, host = { reason: '尚未检查', debuggerVerified: false };
   let refreshing = null, busy = false;
   let saves = Promise.resolve();
-  const resources=await createResourceManager({root:ROOT,stateDir,catalog:resourceCatalog,scenes});
-  const playbackCache=await createPlaybackCache({root:ROOT,stateDir,scenes,resources,mediaPath,catalog:resourceCatalog});
-  const resourceRevision=()=>`${resources.revision}:${playbackCache.revision}`;
-  const resourceState=()=>({...resources.publicState(),revision:resourceRevision(),cache:playbackCache.publicState()});
-  async function resourceAction(action,payload){if(action.startsWith('cache-')){await playbackCache.action(action,payload);return resourceState();}const result=await resources.action(action,payload,references);return ['status','preferences'].includes(action)?resourceState():result;}
+  // Entries found by earlier update checks join the catalog before settings are validated.
+  let resources,playbackCache;
+  const updater=await createCatalogUpdater({stateDir,fetcher:updateFetcher,known:()=>knownFromScenes(scenes),apply:delta=>{
+    const ids=extendCatalog(delta);if(ids.length&&resources){resources.refresh();playbackCache.refresh();for(const s of scenes)for(const c of s.clips??[])assetParent.set(c.id,s.id);}return ids;}});
+  extendCatalog(updater.stored());
+  resources=await createResourceManager({root:ROOT,stateDir,catalog:resourceCatalog,scenes});
+  playbackCache=await createPlaybackCache({root:ROOT,stateDir,scenes,resources,mediaPath,catalog:resourceCatalog});
+  const installer=await createToolInstaller({root:ROOT,stateDir,reloadRuntime:()=>resources.reloadRuntime(),isBusy:()=>resources.publicState().jobs.some(j=>['queued','running'].includes(j.status))||playbackCache.publicState().jobs.some(j=>['queued','running'].includes(j.status)),...toolOptions});
+  const resourceRevision=()=>`${resources.revision}:${playbackCache.revision}:${updater.revision}:${installer.revision}`;
+  const resourceState=()=>({...resources.publicState(),revision:resourceRevision(),cache:playbackCache.publicState(),updates:updater.publicState(),tools:installer.publicState()});
+  async function resourceAction(action,payload){if(action.startsWith('updates-')){await updater.action(action,payload);return resourceState();}if(action.startsWith('tools-')){await installer.action(action,payload);return resourceState();}if(action.startsWith('cache-')){await playbackCache.action(action,payload);return resourceState();}const result=await resources.action(action,payload,references);return ['status','preferences'].includes(action)?resourceState():result;}
   const assetParent=new Map(scenes.flatMap(s=>(s.clips??[]).map(c=>[c.id,s.id])));
   function catalog(){return scenes.map(scene=>{const {file,legacyFile,clips,...rest}=resources.decorate(scene),cached=playbackCache.describe(scene.id);return{...rest,sequence:cached?.sequence??null,posterAvailable:!resources.posterPath(scene.id).endsWith('welcome.svg')||scene.id==='welcome',...(clips?{clips:clips.map(({file,...c})=>({...c,...cached?.clips.find(x=>x.id===c.id)}))}:{})};});}
   function nativeCatalog(){return catalog().map(scene=>({...scene,sequence:scene.sequence?{...scene.sequence,video:nativeFileUrl(playbackCache.fileFor(scene.sequence.key))}:null,video:scene.kind==='dynamic'?nativeFileUrl(resources.fileFor(scene.clips?.[0]?.id??scene.id,scene.id)??mediaPath(scene.id)):null,clips:scene.clips?.map(clip=>({...clip,video:nativeFileUrl(resources.fileFor(clip.id,scene.id)??mediaPath(clip.id))})),poster:nativeFileUrl(resources.posterPath(scene.id)),thumb:nativeFileUrl(resources.posterPath(scene.id,true))}));}
@@ -216,19 +224,22 @@ export async function startServer({ port = 0, stateDir = local, probeHost } = {}
     } catch(error) { current.error = error.message; if(current.session.ws?.readyState !== 1) { current.session.close(); if(native===current)native=null; } }
     finally { busy = false; }
   }, 1000); timer.unref();
+  if(autoUpdate)updater.schedule();
   async function close() {
     clearInterval(timer);
+    await updater.close();
+    await installer.close();
     await playbackCache.close();
     await resources.close();
     try { await removeNative(); } catch { native?.session.close(); native = null; }
     server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));
   }
-  return { server, url, token, origin, close, refreshHost, attachNative,resources,playbackCache };
+  return { server, url, token, origin, close, refreshHost, attachNative,resources,playbackCache,updater };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const lab = await startServer();
+  const lab = await startServer({autoUpdate:true});
   await fs.writeFile(path.join(local, 'session.json'), JSON.stringify({ url: lab.url, pid: process.pid, version:VERSION }, null, 2));
   console.log(`主题实验室已启动：${lab.url}\n关闭此进程会恢复本次应用的视觉层。`);
   if (process.argv.includes('--open')) {

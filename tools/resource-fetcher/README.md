@@ -10,7 +10,9 @@
 
 ## 可选 AI 环境
 
-当前适配器延用本机集合使用的 `realesr-animevideov3-x2` 权重与 CUDA 推理方案。需要 Windows 上可用的 Python、NumPy、PyTorch CUDA、FFmpeg，以及用户自行取得并确认许可的 `.bin` 和 `.param` 模型文件。模型、PyTorch 和 FFmpeg 不进入源码包，也不会在普通启动时自动安装。
+当前适配器延用本机集合使用的 `realesr-animevideov3-x2` 权重与 CUDA 推理方案。需要 Windows 上可用的 Python、NumPy、PyTorch CUDA、FFmpeg，以及 `.bin` 和 `.param` 模型文件。模型、PyTorch 和 FFmpeg 不进入源码包，也不会在普通启动时自动安装。
+
+一键安装：素材管理的“视频处理组件”按 `resources/video-tools.json` 下载固定版本（FFmpeg 9.0.2 essentials、Python 3.12.10 嵌入版、pip、PyTorch 2.11.0 CUDA 12.8／12.6、Real-ESRGAN v0.2.5.0 模型压缩包），每个文件校验大小与 SHA-256，官方源失败时换用内容相同的镜像。全部安装在 `.local/tools`，依赖小包通过 pip 从 PyPI（失败时清华镜像）获取。驱动 570 及以上用 CUDA 12.8，528–569 用 CUDA 12.6。安装末尾会用模型在显卡上处理一帧，通过后才写入 `.local/runtime.json`。实现见 `src/tool-installer.mjs`。
 
 配置方法：运行 `scripts/Configure-Resource-Tools.ps1 -PythonPath <python.exe> -FfmpegPath <ffmpeg.exe> -ModelDirectory <模型目录>`，然后重启主题助手。只配置 FFmpeg 也可以启用 HLS 原片下载。工具会验证程序可运行、CUDA 可用和模型存在，设置仅存于该安装目录的 `.local/runtime.json`。
 
@@ -18,6 +20,6 @@
 
 ## 更新目录
 
-维护者可在完整素材工作区运行 `node scripts/export-resource-catalog.mjs`，从本地已校验清单提取不含个人状态的元数据。这个命令不会下载资源。公开目录是快照，不承诺覆盖后续新增干员或时装。
+维护者可在完整素材工作区运行 `node scripts/export-resource-catalog.mjs`，从本地已校验清单提取不含个人状态的元数据。这个命令不会下载资源。公开目录是快照；之后新增的动态皮肤与立绘由 `src/catalog-update.mjs` 在用户本机增量获取。官方存档不提供帧率，新条目先按 30 帧记录，下载后读取实际帧率。新干员的职业与星级取自 PRTS 干员页，页面尚未建立时该条目会在之后的检查中再次尝试。
 
 最初的批量采集、资料对比与试验脚本仍在开发工作区 `.local`，不应原样打包：其中包含本机路径、缓存和批量行为。用户日常按需下载通过正式资源管理器完成。上游来源与历史流程见仓库根目录的 `背景资源获取.md`。

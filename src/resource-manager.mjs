@@ -6,6 +6,7 @@ import {pipeline} from 'node:stream/promises';
 import {Transform,Readable} from 'node:stream';
 import {spawn} from 'node:child_process';
 import {configureDownloadNetwork} from './download-network.mjs';
+import {inspectMp4} from './mp4-metadata.mjs';
 
 const hosts=new Set(['media.prts.wiki','prts.wiki','web.hycdn.cn','ak.hycdn.cn','patchwiki.biligame.com','wiki.biligame.com','i.imgs.ovh']);
 const releaseAssets=new Set(['yaoyue-4k60.mp4','yaoyue-cover.jpg','eyja-original.mp4','eyja-cover.jpg','shu-1-original.mp4','shu-1-cover.jpg','shu-2-original.mp4','shu-2-cover.jpg'].map(name=>'/Mediocrity-919/codex-arknights/releases/download/wallpapers-v1/'+name));
@@ -17,18 +18,23 @@ export function validateSource(value,{allowLocalTest=false}={}){
 export async function createResourceManager({root,stateDir,catalog,scenes,fetcher,allowLocalTest=false,onRevision=()=>{},timeouts={}}){
   fetcher??=async(url,options)=>{await configureDownloadNetwork();return fetch(url,options);};
   root=path.resolve(root);await fs.mkdir(stateDir,{recursive:true});const realRoot=await fs.realpath(root);
-  const welcome=path.join(root,'public/assets/welcome.svg'),byId=new Map(scenes.map(s=>[s.id,s]));
+  const welcome=path.join(root,'public/assets/welcome.svg');let byId=new Map(scenes.map(s=>[s.id,s]));
   const stateFile=path.join(stateDir,'resources.json');let data={preferences:{},receipts:{},jobs:[],quality:'auto',performance:'auto'},revision=0,writing=Promise.resolve(),timer,pumping=false,closed=false;
   const controllers=new Map(),coverWork=new Map(),coverControllers=new Set(),auxChildren=new Set(),degraded=new Set();
   const coverQueue=[],coverRetryAfter=new Map();let activeCovers=0;
   try{Object.assign(data,JSON.parse(await fs.readFile(stateFile,'utf8')));for(const j of data.jobs)if(!terminal.has(j.status)){j.status='interrupted';j.error='上次任务被中断，可点击重试继续';}}catch(e){if(e.code!=='ENOENT'&&!(e instanceof SyntaxError))throw e;}
+  applyMeasured();
   let runtime={};try{runtime=JSON.parse(await fs.readFile(path.join(stateDir,'runtime.json'),'utf8'));}catch{}
   const resolveRuntime=p=>p?(path.isAbsolute(p)?p:path.resolve(root,p)):null;
   let python=resolveRuntime(process.env.ARK_PYTHON??runtime.python),ffmpeg=resolveRuntime(process.env.ARK_FFMPEG??runtime.ffmpeg),modelDir=resolveRuntime(process.env.ARK_MODEL_DIR??runtime.modelDir??'runtime/models');
+  async function reloadRuntime(){try{runtime=JSON.parse(await fs.readFile(path.join(stateDir,'runtime.json'),'utf8'));python=resolveRuntime(process.env.ARK_PYTHON??runtime.python);ffmpeg=resolveRuntime(process.env.ARK_FFMPEG??runtime.ffmpeg);modelDir=resolveRuntime(process.env.ARK_MODEL_DIR??runtime.modelDir??'runtime/models');bump();}catch{}}
   function capabilities(){return{hls:!!ffmpeg&&existsSync(ffmpeg),upscale:!!python&&existsSync(python)&&!!ffmpeg&&existsSync(ffmpeg)&&existsSync(path.join(modelDir,'realesr-animevideov3-x2.bin')),quality:data.quality,performance:data.performance};}
   async function save(){const snapshot=JSON.stringify(data,null,2);writing=writing.catch(()=>{}).then(async()=>{const temp=stateFile+'.tmp';await fs.writeFile(temp,snapshot);await fs.rename(temp,stateFile);});return writing;}
   function dirty(){if(closed)return;clearTimeout(timer);timer=setTimeout(()=>save().catch(()=>{}),300);timer.unref();}
   function bump(){revision++;onRevision(revision);dirty();}
+  // Entries added by catalog updates carry an estimated frame rate until the file is measured.
+  function applyMeasured(){for(const [key,receipt] of Object.entries(data.receipts)){if(!key.endsWith(':original')||!receipt?.fps)continue;const variants=catalog.files[key.slice(0,-9)];if(!variants?.original?.fpsEstimated)continue;for(const v of [variants.original,variants['4k']])if(v){v.fps=receipt.fps;delete v.fpsEstimated;}}}
+  async function measure(v,target,receipt){if(!v.fpsEstimated)return receipt;try{const m=await inspectMp4(target);if(m.fps>0&&m.fps<=240)receipt.fps=Math.round(m.fps*1000)/1000;}catch{}return receipt;}
   async function safe(relative,create=false){
     if(typeof relative!=='string'||!relative||relative.includes(':'))throw Error('素材路径无效');
     const target=path.resolve(root,relative);if(!target.startsWith(root+path.sep))throw Error('素材路径越界');
@@ -94,7 +100,7 @@ export async function createResourceManager({root,stateDir,catalog,scenes,fetche
   }
   async function execute(job){const controller=new AbortController();controllers.set(job.id,controller);const {signal}=controller;job.status='running';job.error=null;job.completed=0;job.stage='download';dirty();
     try{const all=assets(job.sceneId);for(const asset of all){signal.throwIfAborted();job.assetId=asset.id;const v=asset.variants.original;job.message=`获取 ${job.completed+1}/${all.length}`;
-        if(!isPresent(asset.id,'original')){if(!v.url)throw Error('这是用户自备素材，没有在线下载源');const target=await safe(v.file,true);data.receipts[`${asset.id}:original`]=v.hls?await hls(v,target,job,signal):await transfer(v,target,job,signal);bump();}
+        if(!isPresent(asset.id,'original')){if(!v.url)throw Error('这是用户自备素材，没有在线下载源');const target=await safe(v.file,true);data.receipts[`${asset.id}:original`]=await measure(v,target,v.hls?await hls(v,target,job,signal):await transfer(v,target,job,signal));applyMeasured();bump();}
         if(job.quality==='4k'&&!isPresent(asset.id,'4k')){const target=await safe(asset.variants['4k'].file,true);data.receipts[`${asset.id}:4k`]=await upscale(asset,target,job,signal);bump();}
         job.completed++;dirty();}
       data.preferences[job.sceneId]=job.quality;job.status='complete';job.stage='complete';job.message='已完成，可应用壁纸';void ensurePoster(job.sceneId).catch(()=>{});bump();
@@ -117,7 +123,7 @@ export async function createResourceManager({root,stateDir,catalog,scenes,fetche
   function publicState(){return{revision,capabilities:capabilities(),jobs:data.jobs.slice(-40).map(({assetId,...j})=>j)};}
   async function action(action,payload={},references=()=>({})){const {sceneId}=payload;
     if(action==='status')return publicState();
-    if(action==='configure-tools'){if(process.platform!=='win32')throw Error('此配置窗口仅支持 Windows');if(auxChildren.size)return{launched:true};const child=spawn('powershell.exe',['-NoProfile','-ExecutionPolicy','Bypass','-File',path.join(root,'scripts/Configure-Resource-Tools.ps1'),'-Interactive'],{windowsHide:true,stdio:'ignore'});auxChildren.add(child);child.on('error',()=>auxChildren.delete(child));child.once('exit',async()=>{auxChildren.delete(child);try{runtime=JSON.parse(await fs.readFile(path.join(stateDir,'runtime.json'),'utf8'));python=resolveRuntime(runtime.python);ffmpeg=resolveRuntime(runtime.ffmpeg);modelDir=resolveRuntime(runtime.modelDir??'runtime/models');bump();}catch{}});return{launched:true};}
+    if(action==='configure-tools'){if(process.platform!=='win32')throw Error('此配置窗口仅支持 Windows');if(auxChildren.size)return{launched:true};const child=spawn('powershell.exe',['-NoProfile','-ExecutionPolicy','Bypass','-File',path.join(root,'scripts/Configure-Resource-Tools.ps1'),'-Interactive'],{windowsHide:true,stdio:'ignore'});auxChildren.add(child);child.on('error',()=>auxChildren.delete(child));child.once('exit',async()=>{auxChildren.delete(child);await reloadRuntime();});return{launched:true};}
     if(action==='preview'){void ensurePoster(sceneId).catch(()=>{});return{queued:true};}
     if(action==='degrade'){if(data.performance==='auto'&&status(sceneId).original&&!degraded.has(sceneId)){degraded.add(sceneId);bump();}return{degraded:degraded.has(sceneId)};}
     if(action==='preferences'){if(!['auto','original','4k'].includes(payload.quality)||!['auto','economy','quality'].includes(payload.performance))throw Error('播放偏好无效');data.quality=payload.quality;data.performance=payload.performance;degraded.clear();bump();await save();return publicState();}
@@ -141,6 +147,6 @@ export async function createResourceManager({root,stateDir,catalog,scenes,fetche
     throw Error('未知资源操作');
   }
   const actionHandlerDownload=job=>action('download',{sceneId:job.sceneId,quality:job.quality});
-  return{action,status,decorate,fileFor,posterPath,ensurePoster,publicState,get revision(){return revision;},async close(){closed=true;clearTimeout(timer);for(const c of [...controllers.values(),...coverControllers])c.abort();for(const child of auxChildren)if(child.pid)spawn('taskkill.exe',['/PID',String(child.pid),'/T','/F'],{windowsHide:true,stdio:'ignore'});while(pumping)await new Promise(r=>setTimeout(r,30));await Promise.allSettled(coverWork.values());await save();}};
+  return{reloadRuntime,refresh(){byId=new Map(scenes.map(s=>[s.id,s]));applyMeasured();bump();},action,status,decorate,fileFor,posterPath,ensurePoster,publicState,get revision(){return revision;},async close(){closed=true;clearTimeout(timer);for(const c of [...controllers.values(),...coverControllers])c.abort();for(const child of auxChildren)if(child.pid)spawn('taskkill.exe',['/PID',String(child.pid),'/T','/F'],{windowsHide:true,stdio:'ignore'});while(pumping)await new Promise(r=>setTimeout(r,30));await Promise.allSettled(coverWork.values());await save();}};
 }
 import {statSync} from 'node:fs';

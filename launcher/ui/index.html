@@ -9,35 +9,86 @@
 </head>
 <body>
 <div class="stage" id="stage">
-  <div class="grid"></div><div class="cone"></div>
-  <canvas id="dust"></canvas>
-  <div class="bnd bt"></div><div class="bnd bb"></div>
-  <div class="top"><b>▲</b><span>CODEX / WORKSPACE BOOT</span><i></i><span id="clk">T+00:00.000</span></div>
-  <div class="idv">LOCAL THEME<br>v0.12.0 BETA</div>
-  <div class="log" aria-live="polite"><p></p><p></p><p></p><p></p></div>
-  
-  <svg class="emblem" viewBox="0 0 400 400" fill="none" stroke="currentColor" aria-hidden="true">
-    <circle class="ticks" cx="200" cy="200" r="192" stroke-width="2.5" stroke-dasharray="1.2 9.8"/>
-    <circle class="orb" cx="200" cy="200" r="150" stroke-width=".8" stroke-dasharray="40 160 6 40" stroke="#9fdcff"/>
-    <path class="hx h1" d="M200 30L347.2 115V285L200 370L52.8 285V115Z" pathLength="1" stroke-width="1.4"/>
-    <path class="hx h2" d="M200 80L303.9 140V260L200 320L96.1 260V140Z" pathLength="1" stroke-width="1"/>
-    <path class="hx h3" d="M200 130L260.6 165V235L200 270L139.4 235V165Z" pathLength="1" stroke-width=".9" stroke="#ffc21a"/>
-    <path class="sp" d="M200 130V30M260.6 165L347.2 115M260.6 235L347.2 285M200 270V370M139.4 235L52.8 285M139.4 165L52.8 115" pathLength="1" stroke-width=".5" opacity=".6"/>
-    <g class="nodes" fill="currentColor" stroke="none"><circle cx="200" cy="30" r="3"/><circle cx="347.2" cy="115" r="3"/><circle cx="347.2" cy="285" r="3"/><circle cx="200" cy="370" r="3"/><circle cx="52.8" cy="285" r="3"/><circle cx="52.8" cy="115" r="3"/></g>
-    <g class="core"><path d="M166 168L200 200L166 232" stroke-width="9" stroke-linejoin="miter" stroke-linecap="square"/><rect x="208" y="224" width="32" height="8" fill="#ffc21a" stroke="none"/></g>
-  </svg>
-  <div class="title"><h1 id="en">CODEX</h1><h2><span>代码终端</span></h2></div>
-  <div class="trk fo"></div>
-  <div class="pl l fo"></div><div class="pl r fo"></div><div class="pn l fo"><span id="p1">01 / 04</span></div><div class="pn r fo"><span id="p2">01 / 04</span></div>
-  <canvas id="orb3d" class="sph"></canvas>
-  <div class="card fo"><small>STARTUP</small><b>CODEX</b><strong><i>#</i><span id="nn">01</span></strong><small>PHASE / 04</small></div>
-  <div class="stat fo"><b id="sT"></b><span id="sS"></span></div>
-  
-  <canvas id="hexw" class="hw"></canvas><div class="rip"></div>
-  
-  
+  <div class="bg"></div>
+  <div class="grid"></div>
+  <canvas id="fx"></canvas>
+  <div class="ignite"></div>
 
-  <div class="flash"></div>
+  <div class="frame" aria-hidden="true"><i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i></div>
+  <div class="top"><b>▲</b><span>ARK · CODEX // TERMINAL LINK</span><i></i><span id="clk">T+00:00</span></div>
+  <div class="side" aria-hidden="true">ARKNIGHTS × CODEX — LOCAL WORKSPACE TERMINAL</div>
+
+  <div class="rig">
+    <div class="ghost" aria-hidden="true">CODEX</div>
+    <div class="emblem" id="emblem">
+      <svg class="core" viewBox="-200 -200 400 400" aria-hidden="true">
+        <defs>
+          <radialGradient id="gl" r=".5"><stop offset="0" stop-color="#ffc21a" stop-opacity=".5"/><stop offset=".45" stop-color="#ffc21a" stop-opacity=".12"/><stop offset="1" stop-color="#ffc21a" stop-opacity="0"/></radialGradient>
+          <linearGradient id="tb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#141a20"/><stop offset="1" stop-color="#06080a"/></linearGradient>
+          <linearGradient id="gn" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".38"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+          <clipPath id="gem"><polygon points="0,-112 62,-40 62,44 0,112 -62,44 -62,-40"/></clipPath>
+        </defs>
+        <circle class="halo" r="150" fill="url(#gl)"/>
+        <g class="rings">
+          <circle class="r-tick" r="184" pathLength="360"/>
+          <g class="r-mark"><rect x="-1.5" y="-196" width="3" height="14"/><rect x="-1.5" y="182" width="3" height="14"/><rect x="182" y="-1.5" width="14" height="3"/><rect x="-196" y="-1.5" width="14" height="3"/></g>
+          <circle class="r-arc" r="168" pathLength="360"/>
+          <circle class="r-track" r="154" pathLength="100"/>
+          <circle class="r-prog" id="ring" r="154" pathLength="100"/>
+        </g>
+        <path class="hexf" pathLength="1" d="M0 -132L114.3 -66V66L0 132L-114.3 66V-66Z"/>
+        <g class="hexn"><rect x="-3" y="-135" width="6" height="6"/><rect x="111.3" y="-69" width="6" height="6"/><rect x="111.3" y="63" width="6" height="6"/><rect x="-3" y="129" width="6" height="6"/><rect x="-117.3" y="63" width="6" height="6"/><rect x="-117.3" y="-69" width="6" height="6"/></g>
+        <g class="gem">
+          <polygon class="fc" style="--dx:46px;--dy:-46px;--r:14deg;--d:0s" points="0,-112 62,-40 36,-26 0,-58" fill="#1b2229"/>
+          <polygon class="fc" style="--dx:64px;--dy:0px;--r:-10deg;--d:.05s" points="62,-40 62,44 36,30 36,-26" fill="#0f1418"/>
+          <polygon class="fc" style="--dx:46px;--dy:46px;--r:12deg;--d:.1s" points="62,44 0,112 0,62 36,30" fill="#080b0e"/>
+          <polygon class="fc" style="--dx:-46px;--dy:46px;--r:-14deg;--d:.15s" points="0,112 -62,44 -36,30 0,62" fill="#0d1115"/>
+          <polygon class="fc" style="--dx:-64px;--dy:0px;--r:10deg;--d:.2s" points="-62,44 -62,-40 -36,-26 -36,30" fill="#171d23"/>
+          <polygon class="fc" style="--dx:-46px;--dy:-46px;--r:-12deg;--d:.25s" points="-62,-40 0,-112 0,-58 -36,-26" fill="#232b33"/>
+          <polygon class="fc tbl" style="--dx:0px;--dy:0px;--r:0deg;--d:.3s" points="0,-58 36,-26 36,30 0,62 -36,30 -36,-26" fill="url(#tb)"/>
+          <path class="facet" pathLength="1" d="M0 -112V-58M62 -40L36 -26M62 44L36 30M0 112V62M-62 44L-36 30M-62 -40L-36 -26"/>
+          <g clip-path="url(#gem)"><rect class="glint" x="-60" y="-130" width="40" height="260" fill="url(#gn)"/></g>
+          <path class="gedge" pathLength="1" d="M0 -112L62 -40V44L0 112L-62 44V-40Z"/>
+          <path class="tedge" pathLength="1" d="M0 -58L36 -26V30L0 62L-36 30V-26Z"/>
+          <g class="gnode"><circle cy="-112" r="3.2"/><circle cx="62" cy="-40" r="2.4"/><circle cx="62" cy="44" r="2.4"/><circle cy="112" r="3.2"/><circle cx="-62" cy="44" r="2.4"/><circle cx="-62" cy="-40" r="2.4"/></g>
+        </g>
+        <g class="pg"><path class="chev" d="M-24 -17L2 0L-24 17"/><rect class="cur" x="8" y="11" width="21" height="6"/></g>
+        <circle class="wave w1" r="120"/>
+        <circle class="wave w2" r="120"/>
+        <g class="orbit"><circle r="208" fill="none"/>
+          <polygon points="0,-216 7,-206 0,-196 -7,-206"/><polygon points="150,140 157,147 152,156 145,148"/><polygon points="-176,100 -170,104 -173,112 -179,107"/>
+        </g>
+      </svg>
+      <div class="cmd"><span>$ codex --theme arknights</span></div>
+      <div class="tag"><i></i><span>PROMPT CORE // 源石核心 · <b id="pc">000</b>%</span></div>
+    </div>
+
+    <section class="file">
+      <header class="fh"><span>OPERATOR FILE</span><b>干员档案</b><em>No. CDX-0001</em></header>
+      <div class="hz" aria-hidden="true"></div>
+      <h1 class="name">CODEX</h1>
+      <p class="sub"><span>ARKNIGHTS × CODEX</span><i></i><span class="zh">明日方舟主题工作区</span></p>
+      <dl class="attrs">
+        <div><dt>职业 / CLASS</dt><dd>术师</dd></div>
+        <div><dt>部署 / DEPLOY</dt><dd>本地终端</dd></div>
+        <div><dt>状态 / STATUS</dt><dd id="sv">接入中</dd></div>
+      </dl>
+      <ol class="phases" id="phases">
+        <li><span class="no">01</span><span class="lb">启动 Codex</span><span class="bar"><i></i></span><span class="ok">STANDBY</span></li>
+        <li><span class="no">02</span><span class="lb">连接主题服务</span><span class="bar"><i></i></span><span class="ok">STANDBY</span></li>
+        <li><span class="no">03</span><span class="lb">准备壁纸首帧</span><span class="bar"><i></i></span><span class="ok">STANDBY</span></li>
+        <li><span class="no">04</span><span class="lb">进入工作区</span><span class="bar"><i></i></span><span class="ok">STANDBY</span></li>
+      </ol>
+      <p class="msg"><i></i><span id="sT"></span></p>
+    </section>
+  </div>
+
+  <div class="log" aria-live="polite"><p></p><p></p><p></p><p></p></div>
+  <div class="idv">LOCAL THEME · v0.12.6 BETA</div>
+
+  <div class="shutter" aria-hidden="true"><i class="s1"></i><i class="s2"></i><i class="s3"></i></div>
+  <div class="welcome"><small>LINK ESTABLISHED</small><b>欢迎回来，博士</b><i></i><span>CODEX WORKSPACE ONLINE</span></div>
+
   <div class="scan"></div><div class="vig"></div>
 </div>
 <button id="skip" type="button">Esc · 跳过动画</button>

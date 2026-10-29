@@ -27,7 +27,7 @@ export async function createPlaybackCache({root,stateDir,scenes,resources,mediaP
   try{const stored=JSON.parse(await fs.readFile(indexPath,'utf8'));if(stored.format===FORMAT)data={...data,...stored};}catch{}
   let revision=0,closed=false,pumping=false,activeJob=null,controller=null,writes=Promise.resolve(),saveTimer,wakeTimer;
   let wanted=[],protectedScenes=new Set(),leasedKeys=new Set(),slowUntil=0;
-  const byId=new Map(scenes.map(s=>[s.id,s])),jobs=[],descriptors=new Map();
+  let byId=new Map(scenes.map(s=>[s.id,s]));const jobs=[],descriptors=new Map();
   const cacheFile=(key,extension='.mp4')=>{if(!/^[a-f0-9]{64}$/.test(key))throw Error('缓存标识无效');return path.join(directory,key+extension);};
   async function safeUnlink(file){if(path.dirname(file)!==directory)throw Error('缓存清理越界');try{const stat=await fs.lstat(file);if(stat.isSymbolicLink())throw Error('缓存不能是链接');await fs.unlink(file);}catch(e){if(e.code!=='ENOENT')throw e;}}
   async function save(){clearTimeout(saveTimer);const text=JSON.stringify(data);writes=writes.catch(()=>{}).then(async()=>{await fs.writeFile(indexPath+'.tmp',text);await fs.rename(indexPath+'.tmp',indexPath);});await writes;}
@@ -152,5 +152,5 @@ export async function createPlaybackCache({root,stateDir,scenes,resources,mediaP
   // Only owned temporary files from interrupted jobs are removed at startup.
   const indexed=new Set(Object.values(data.entries).map(e=>e.key+'.mp4'));
   for(const name of await fs.readdir(directory))if(/^[a-f0-9]{64}\.(building\.mp4|concat\.txt)$/.test(name)||/^[a-f0-9]{64}\.mp4$/.test(name)&&!indexed.has(name))await safeUnlink(path.join(directory,name));
-  return{describe,fileFor,observe,action,publicState,get revision(){return revision;},async close(){closed=true;clearTimeout(saveTimer);clearTimeout(wakeTimer);controller?.abort();while(pumping)await new Promise(r=>setTimeout(r,20));await save();}};
+  return{refresh(){byId=new Map(scenes.map(s=>[s.id,s]));},describe,fileFor,observe,action,publicState,get revision(){return revision;},async close(){closed=true;clearTimeout(saveTimer);clearTimeout(wakeTimer);controller?.abort();while(pumping)await new Promise(r=>setTimeout(r,20));await save();}};
 }

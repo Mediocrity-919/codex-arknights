@@ -1,7 +1,8 @@
 """Optional, one-resource AI worker. Preserve frame rate, duration and full frame.
 
-Uses the same model adapter as the local collection. Model weights are user-
-provided; Python/Torch/CUDA/FFmpeg are optional and never installed on startup.
+Uses the same model adapter as the local collection. Python/Torch/CUDA/FFmpeg and
+the model are optional: installed on request by the one-click installer or
+configured by hand, never on startup.
 """
 import argparse, json, os, pathlib, subprocess, sys, time
 
@@ -9,6 +10,8 @@ def main():
     p=argparse.ArgumentParser()
     for key in ['input','output','ffmpeg','model-dir','fps','duration']:p.add_argument('--'+key,required=True)
     a=p.parse_args()
+    # Embedded Python (._pth mode) does not put the script folder on sys.path.
+    sys.path.insert(0,str(pathlib.Path(__file__).resolve().parent))
     try:
         import numpy as np
         import torch
